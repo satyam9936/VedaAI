@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(npm -v)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"=== tsc exit: $? ===\")",
+      "WebFetch(domain:docs.cloud.google.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:discuss.ai.google.dev)",
+      "Read(//e/tmp/**)",
+      "Bash(curl -sL \"https://ai.google.dev/gemini-api/docs/generate-content/structured-output.md.txt\" -o so_legacy.txt -w \"%{http_code} %{size_download}\\\\n\")",
+      "Bash(curl -s 'https://generativelanguage.googleapis.com/$discovery/rest?version=v1beta' -o /tmp/genai_disc.json)",
+      "Read(//tmp/**)",
+      "Bash(node -e ' *)",
+      "Bash(gh api *)",
+      "Bash(curl -sL \"https://ai.google.dev/api/generate-content.md.txt\" -o gc.txt -w \"%{http_code} %{size_download}\\\\n\")",
+      "Bash(grep -n 'propertyOrdering\\\\|property_ordering\\\\|additionalProperties\\\\|patternProperties\\\\|oneOf\\\\|anyOf\\\\|$ref\\\\|free-form\\\\|Limitations\\\\|dictionar\\\\|map' so_legacy.txt)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(pwd -W)",
+      "Bash(grep -n \"^#\\\\{1,4\\\\} \\\\|^### \\\\|responseMimeType\\\\|responseSchema\\\\|responseJsonSchema\\\\|propertyOrdering\" gc.txt)",
+      "Bash(curl -sL \"https://ai.google.dev/api/python/google/genai/types/GenerateContentResponse.md.txt\" -o sdk.txt -w \"%{http_code}\\\\n\")",
+      "Bash(curl -sL \"https://ai.google.dev/gemini-api/docs/safety-settings.md.txt\" -o safety.txt -w \"%{http_code}\\\\n\")",
+      "Bash(npm install *)",
+      "Bash(node -e \"console.log\\('pdfjs-dist:', require\\('./node_modules/pdfjs-dist/package.json'\\).version\\)\")"
+    ]
+  }
+}

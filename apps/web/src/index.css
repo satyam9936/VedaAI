@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kalam:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-handwriting: 'Kalam', cursive, sans-serif;
+
+  --color-veda-50: #f0f4ff;
+  --color-veda-100: #e0e9ff;
+  --color-veda-200: #c7d7fe;
+  --color-veda-300: #a4bdfd;
+  --color-veda-400: #7999fb;
+  --color-veda-500: #4f6bf6;
+  --color-veda-600: #384ceb;
+  --color-veda-700: #2b39d8;
+  --color-veda-800: #2630af;
+  --color-veda-900: #242d8a;
+  --color-veda-950: #151954;
+  --color-slate-850: #131c2e;
+  --color-slate-750: #26334d;
+}
+
+body {
+  background-color: #020617;
+  color: #f8fafc;
+  font-family: 'Inter', system-ui, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(79, 107, 246, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(79, 107, 246, 0.6);
+}
+
+@keyframes activePulse {
+  0% {
+    outline-color: rgba(79, 107, 246, 0.9);
+    box-shadow: 0 0 0 0 rgba(79, 107, 246, 0.7);
+  }
+  70% {
+    outline-color: rgba(79, 107, 246, 1);
+    box-shadow: 0 0 0 10px rgba(79, 107, 246, 0);
+  }
+  100% {
+    outline-color: rgba(79, 107, 246, 0.9);
+    box-shadow: 0 0 0 0 rgba(79, 107, 246, 0);
+  }
+}
+
+.highlight-box-active {
+  animation: activePulse 2s infinite;
+}

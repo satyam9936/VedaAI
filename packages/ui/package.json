@@ -1,0 +1,12 @@
+{
+  "name": "@vedaai/ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.tsx",
+  "dependencies": {
+    "@vedaai/types": "*",
+    "lucide-react": "^1.34.0",
+    "react": "^19.0.0"
+  }
+}

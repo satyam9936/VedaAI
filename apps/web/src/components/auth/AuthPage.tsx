@@ -257,7 +257,7 @@ export const AuthPage: React.FC = () => {
                       type="text"
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
-                      placeholder="Madhur Rastogi"
+                      placeholder="Satyam Rastogi"
                       required
                       className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-veda-500 transition"
                     />

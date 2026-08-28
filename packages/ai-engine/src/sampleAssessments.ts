@@ -14,6 +14,7 @@ export function generateBiologyQuestionPaperSVG(): string {
     <text x="50" y="460" font-family="Inter, sans-serif" font-size="15" font-weight="bold" fill="#0f172a">Q5. Draw a labelled diagram of an alveolus showing capillaries and air space... [2 Marks]</text>
     <text x="50" y="540" font-family="Inter, sans-serif" font-size="15" font-weight="bold" fill="#0f172a">Q6. Draw a neat labelled diagram of the human digestive system... [5 Marks]</text>
     <text x="50" y="620" font-family="Inter, sans-serif" font-size="15" font-weight="bold" fill="#0f172a">Q7. Draw and label a nephron (Bowman's capsule, glomerulus, proximal tubule)... [5 Marks]</text>
+    <text x="50" y="700" font-family="Inter, sans-serif" font-size="15" font-weight="bold" fill="#0f172a">Q8. Explain the structural differences between palisade mesophyll and spongy mesophyll... [5 Marks]</text>
   </svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
@@ -26,51 +27,63 @@ export function generateBiologyAnswerSheetSVG(): string {
     </g>
     <line x1="100" y1="0" x2="100" y2="1050" stroke="#fca5a5" stroke-width="2" stroke-dasharray="4 2"/>
     
+    <!-- Q1 Answer -->
     <text x="40" y="115" font-family="Kalam, cursive" font-size="20" font-weight="bold" fill="#1d4ed8">Q1.</text>
-    <text x="120" y="115" font-family="Kalam, cursive" font-size="18" fill="#1e293b">Photosynthesis is the process used by green plants and some other organisms</text>
-    <text x="120" y="145" font-family="Kalam, cursive" font-size="18" fill="#1e293b">to convert light energy into chemical energy.</text>
+    <text x="120" y="115" font-family="Kalam, cursive" font-size="18" fill="#1e293b">Arteries carry oxygenated blood away from the heart to body organs.</text>
+    <text x="120" y="145" font-family="Kalam, cursive" font-size="18" fill="#1e293b">Veins return deoxygenated blood back to the heart chambers.</text>
 
-    <!-- Chemical Equation Box -->
-    <rect x="180" y="180" width="460" height="45" fill="#ffffff" stroke="#334155" stroke-width="1.5" rx="4"/>
-    <text x="410" y="210" font-family="Kalam, cursive" font-size="18" font-weight="bold" fill="#0f172a" text-anchor="middle">6CO₂ + 6H₂O  ——(Light/Chlorophyll)——&gt;  C₆H₁₂O₆ + 6O₂</text>
+    <!-- Q3 Chemical Equation & Plant Diagram -->
+    <text x="40" y="185" font-family="Kalam, cursive" font-size="20" font-weight="bold" fill="#1d4ed8">Q3.</text>
+    <text x="120" y="185" font-family="Kalam, cursive" font-size="17" fill="#1e293b">Photosynthesis equation with thylakoid chlorophyll pigment reaction:</text>
+    <rect x="180" y="200" width="460" height="40" fill="#ffffff" stroke="#334155" stroke-width="1.5" rx="4"/>
+    <text x="410" y="226" font-family="Kalam, cursive" font-size="17" font-weight="bold" fill="#0f172a" text-anchor="middle">6CO₂ + 6H₂O  ——(Light/Chlorophyll)——&gt;  C₆H₁₂O₆ + 6O₂</text>
 
     <!-- Plant Sunlight Diagram Sketch -->
-    <g transform="translate(320, 240)">
-      <!-- Sun -->
-      <circle cx="200" cy="40" r="18" fill="#fde047" stroke="#ca8a04" stroke-width="1.5"/>
-      <path d="M200 12 L200 4 M200 68 L200 76 M172 40 L164 40 M228 40 L236 40" stroke="#ca8a04" stroke-width="2"/>
-      <text x="230" y="45" font-family="Kalam, cursive" font-size="16" fill="#1e293b">Sunlight</text>
-
-      <!-- Plant stem & leaves -->
-      <path d="M200 130 C195 90 205 70 200 50" stroke="#16a34a" stroke-width="4" fill="none"/>
-      <!-- Leaf left -->
-      <path d="M198 90 Q150 70 170 110 Q195 100 198 90 Z" fill="#4ade80" stroke="#15803d" stroke-width="1.5"/>
-      <!-- Leaf right -->
-      <path d="M202 80 Q250 60 230 100 Q205 90 202 80 Z" fill="#4ade80" stroke="#15803d" stroke-width="1.5"/>
-
-      <!-- Arrows -->
-      <text x="90" y="90" font-family="Kalam, cursive" font-size="15" fill="#1e293b">Carbon dioxide</text>
-      <path d="M140 95 L170 95" stroke="#334155" stroke-width="1.5" marker-end="url(#arrow)"/>
-
-      <text x="260" y="90" font-family="Kalam, cursive" font-size="15" fill="#1e293b">Oxygen</text>
-      <path d="M225 95 L255 95" stroke="#334155" stroke-width="1.5"/>
-
-      <!-- Roots & Water -->
-      <path d="M200 130 L185 165 M200 130 L200 170 M200 130 L215 160" stroke="#78350f" stroke-width="2"/>
-      <text x="240" y="160" font-family="Kalam, cursive" font-size="15" fill="#1e293b">Water</text>
+    <g transform="translate(300, 245)">
+      <circle cx="200" cy="30" r="16" fill="#fde047" stroke="#ca8a04" stroke-width="1.5"/>
+      <text x="225" y="35" font-family="Kalam, cursive" font-size="14" fill="#1e293b">Sunlight</text>
+      <path d="M200 110 C195 80 205 60 200 45" stroke="#16a34a" stroke-width="3.5" fill="none"/>
+      <path d="M198 80 Q160 60 175 95 Q195 90 198 80 Z" fill="#4ade80" stroke="#15803d" stroke-width="1.5"/>
+      <path d="M202 70 Q240 50 225 85 Q205 80 202 70 Z" fill="#4ade80" stroke="#15803d" stroke-width="1.5"/>
+      <text x="100" y="80" font-family="Kalam, cursive" font-size="14" fill="#1e293b">CO₂ In</text>
+      <text x="245" y="80" font-family="Kalam, cursive" font-size="14" fill="#1e293b">O₂ Out</text>
     </g>
 
-    <!-- Q2 Handwritten Answer Section (Target Bounding Box) -->
-    <g transform="translate(0, 480)">
+    <!-- Q2 Handwritten Answer Section -->
+    <g transform="translate(0, 470)">
       <text x="40" y="45" font-family="Kalam, cursive" font-size="20" font-weight="bold" fill="#1d4ed8">Q2.</text>
       <text x="120" y="45" font-family="Kalam, cursive" font-size="18" fill="#1e293b">The process mainly occurs in the chloroplast of the plant cell. It has</text>
       <text x="120" y="75" font-family="Kalam, cursive" font-size="18" fill="#1e293b">two main stages:</text>
-      <text x="120" y="105" font-family="Kalam, cursive" font-size="18" fill="#1e293b">1. Light reaction — Captures light energy.</text>
-      <text x="120" y="135" font-family="Kalam, cursive" font-size="18" fill="#1e293b">2. Dark reaction — Uses energy to make glucose.</text>
+      <text x="120" y="105" font-family="Kalam, cursive" font-size="18" fill="#1e293b">1. Light reaction — Captures light energy in thylakoid membrane.</text>
+      <text x="120" y="135" font-family="Kalam, cursive" font-size="18" fill="#1e293b">2. Dark reaction — Uses NADPH &amp; ATP energy to synthesize glucose.</text>
     </g>
 
-    <!-- Page footer -->
-    <text x="700" y="1010" font-family="Inter, sans-serif" font-size="12" fill="#94a3b8">Page 1 of 4</text>
+    <!-- Q5 Alveolus Sketch Answer Section -->
+    <g transform="translate(0, 650)">
+      <text x="40" y="40" font-family="Kalam, cursive" font-size="20" font-weight="bold" fill="#1d4ed8">Q5.</text>
+      <text x="120" y="40" font-family="Kalam, cursive" font-size="17" fill="#1e293b">Alveolus sac showing pulmonary capillary gas exchange (O₂ into blood, CO₂ out).</text>
+    </g>
+
+    <!-- Q6 Digestive System Diagram Section -->
+    <g transform="translate(0, 750)">
+      <text x="40" y="40" font-family="Kalam, cursive" font-size="20" font-weight="bold" fill="#1d4ed8">Q6.</text>
+      <text x="120" y="40" font-family="Kalam, cursive" font-size="17" fill="#1e293b">Human digestive tract diagram: Esophagus -&gt; Stomach -&gt; Small Intestine (Jejunum).</text>
+    </g>
+
+    <!-- Q7 Nephron Diagram Section -->
+    <g transform="translate(0, 850)">
+      <text x="40" y="40" font-family="Kalam, cursive" font-size="20" font-weight="bold" fill="#1d4ed8">Q7.</text>
+      <text x="120" y="40" font-family="Kalam, cursive" font-size="17" fill="#1e293b">Nephron structure: Bowman's capsule, Glomerulus, Loop of Henle, Collecting duct.</text>
+    </g>
+
+    <!-- Q8 Out of Order Answer Section -->
+    <g transform="translate(0, 940)">
+      <text x="40" y="35" font-family="Kalam, cursive" font-size="20" font-weight="bold" fill="#1d4ed8">Q8.</text>
+      <text x="120" y="35" font-family="Kalam, cursive" font-size="17" fill="#1e293b">Palisade mesophyll cells are vertically elongated with dense chloroplast density.</text>
+    </g>
+
+    {/* Page footer */}
+    <text x="700" y="1010" font-family="Inter, sans-serif" font-size="12" fill="#94a3b8">Page 1 of 1</text>
   </svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
@@ -79,7 +92,7 @@ export const SAMPLE_BIOLOGY_ASSESSMENT: AssessmentData = {
   id: 'biology-annual-2026',
   title: 'Biology & Physiology Annual Exam',
   subject: 'Exams',
-  studentName: 'Madhur Rastogi',
+  studentName: 'Satyam Rastogi',
   rollNumber: '1042',
   date: 'August 27, 2026',
   questionPaperPages: [generateBiologyQuestionPaperSVG()],
@@ -159,9 +172,9 @@ export const SAMPLE_BIOLOGY_ASSESSMENT: AssessmentData = {
       questionNumber: '1',
       isAnswered: true,
       isOutOfOrder: false,
-      studentAnswerText: 'Arteries carry oxygenated blood away from the heart to body organs.',
+      studentAnswerText: 'Arteries carry oxygenated blood away from the heart to body organs. Veins return deoxygenated blood back to the heart chambers.',
       boundingBoxes: [
-        { page: 1, ymin: 9.0, xmin: 12.0, ymax: 15.0, xmax: 95.0, label: 'Page 1 - Ans 1' }
+        { page: 1, ymin: 9.0, xmin: 4.0, ymax: 15.5, xmax: 96.0, label: 'Page 1 - Ans 1' }
       ],
       marksAwarded: 2,
       maxMarks: 2,
@@ -173,14 +186,14 @@ export const SAMPLE_BIOLOGY_ASSESSMENT: AssessmentData = {
       questionNumber: '2',
       isAnswered: true,
       isOutOfOrder: false,
-      studentAnswerText: 'The process mainly occurs in the chloroplast of the plant cell. It has two main stages: 1. Light reaction — Captures light energy. 2. Dark reaction — Uses energy to make glucose.',
+      studentAnswerText: 'The process mainly occurs in the chloroplast of the plant cell. It has two main stages: 1. Light reaction — Captures light energy in thylakoid membrane. 2. Dark reaction — Uses NADPH & ATP energy to synthesize glucose.',
       boundingBoxes: [
-        { page: 1, ymin: 47.0, xmin: 4.5, ymax: 67.0, xmax: 97.5, label: 'Page 1 - Ans 2' }
+        { page: 1, ymin: 45.0, xmin: 4.0, ymax: 60.0, xmax: 96.0, label: 'Page 1 - Ans 2' }
       ],
       marksAwarded: 2,
       maxMarks: 2,
       evaluationStatus: 'correct',
-      aiFeedback: 'Excellent work! You correctly identified the chloroplast as the organelle responsible for photosynthesis. Keep it up!',
+      aiFeedback: 'Excellent work! You correctly identified the chloroplast as the organelle responsible for photosynthesis and listed both stages.',
       keyPointsFound: ['Chloroplast identified', 'Light & dark reaction stages mentioned']
     },
     'q3': {
@@ -188,14 +201,14 @@ export const SAMPLE_BIOLOGY_ASSESSMENT: AssessmentData = {
       questionNumber: '3',
       isAnswered: true,
       isOutOfOrder: false,
-      studentAnswerText: 'Chloroplast contains chlorophyll pigment which traps light energy during thylakoid reactions.',
+      studentAnswerText: 'Chloroplast contains chlorophyll pigment which traps light energy. Chemical equation: 6CO2 + 6H2O -> C6H12O6 + 6O2.',
       boundingBoxes: [
-        { page: 1, ymin: 17.0, xmin: 12.0, ymax: 42.0, xmax: 95.0, label: 'Page 1 - Ans 3' }
+        { page: 1, ymin: 16.0, xmin: 4.0, ymax: 43.5, xmax: 96.0, label: 'Page 1 - Ans 3' }
       ],
       marksAwarded: 2,
       maxMarks: 2,
       evaluationStatus: 'correct',
-      aiFeedback: 'Detailed explanation of thylakoids and chlorophyll pigment role.'
+      aiFeedback: 'Detailed explanation of thylakoid chlorophyll pigment role with correct balanced chemical equation.'
     },
     'q4': {
       questionId: 'q4',
@@ -206,45 +219,45 @@ export const SAMPLE_BIOLOGY_ASSESSMENT: AssessmentData = {
       boundingBoxes: [],
       marksAwarded: 0,
       maxMarks: 2,
-      evaluationStatus: 'incorrect',
-      aiFeedback: 'Question was left unattempted. Review cardiac cycle and valve pathways.'
+      evaluationStatus: 'unanswered',
+      aiFeedback: 'Question was left unattempted by the student. Review cardiac cycle and heart valve pathways.'
     },
     'q5': {
       questionId: 'q5',
       questionNumber: '5',
       isAnswered: true,
       isOutOfOrder: false,
-      studentAnswerText: 'Alveolus diagram drawn with capillary network.',
+      studentAnswerText: 'Alveolus sac showing pulmonary capillary gas exchange (O2 into blood, CO2 out).',
       boundingBoxes: [
-        { page: 1, ymin: 70.0, xmin: 12.0, ymax: 82.0, xmax: 95.0, label: 'Page 1 - Ans 5' }
+        { page: 1, ymin: 62.0, xmin: 4.0, ymax: 71.0, xmax: 96.0, label: 'Page 1 - Ans 5' }
       ],
       marksAwarded: 2,
       maxMarks: 2,
       evaluationStatus: 'correct',
-      aiFeedback: 'Neat alveolar diagram with accurate gas diffusion arrows.'
+      aiFeedback: 'Neat alveolar diagram with accurate gas diffusion direction arrows.'
     },
     'q6': {
       questionId: 'q6',
       questionNumber: '6',
       isAnswered: true,
       isOutOfOrder: false,
-      studentAnswerText: 'Digestive system diagram including stomach, small intestine, and liver.',
+      studentAnswerText: 'Human digestive tract diagram: Esophagus -> Stomach -> Small Intestine (Jejunum).',
       boundingBoxes: [
-        { page: 1, ymin: 83.0, xmin: 12.0, ymax: 95.0, xmax: 95.0, label: 'Page 1 - Ans 6' }
+        { page: 1, ymin: 72.0, xmin: 4.0, ymax: 81.0, xmax: 96.0, label: 'Page 1 - Ans 6' }
       ],
       marksAwarded: 4,
       maxMarks: 5,
       evaluationStatus: 'partial',
-      aiFeedback: 'Well labeled organs, missed explicit callout for jejunum absorption site.'
+      aiFeedback: 'Well labeled organs, minor deduction for omitting villi microanatomy callout.'
     },
     'q7': {
       questionId: 'q7',
       questionNumber: '7',
       isAnswered: true,
       isOutOfOrder: false,
-      studentAnswerText: "Nephron diagram with Bowman's capsule and Loop of Henle.",
+      studentAnswerText: "Nephron structure: Bowman's capsule, Glomerulus, Loop of Henle, Collecting duct.",
       boundingBoxes: [
-        { page: 1, ymin: 88.0, xmin: 12.0, ymax: 98.0, xmax: 95.0, label: 'Page 1 - Ans 7' }
+        { page: 1, ymin: 82.0, xmin: 4.0, ymax: 90.0, xmax: 96.0, label: 'Page 1 - Ans 7' }
       ],
       marksAwarded: 5,
       maxMarks: 5,
@@ -256,20 +269,20 @@ export const SAMPLE_BIOLOGY_ASSESSMENT: AssessmentData = {
       questionNumber: '8',
       isAnswered: true,
       isOutOfOrder: true,
-      studentAnswerText: 'Palisade mesophyll cells are elongated with high chloroplast density.',
+      studentAnswerText: 'Palisade mesophyll cells are vertically elongated with dense chloroplast density.',
       boundingBoxes: [
-        { page: 1, ymin: 92.0, xmin: 12.0, ymax: 99.0, xmax: 95.0, label: 'Page 1 - Ans 8' }
+        { page: 1, ymin: 90.5, xmin: 4.0, ymax: 97.0, xmax: 96.0, label: 'Page 1 - Ans 8' }
       ],
       marksAwarded: 3,
       maxMarks: 5,
       evaluationStatus: 'partial',
-      aiFeedback: 'Answered out of order.'
+      aiFeedback: 'Accurate tissue description, but answered out of order at the bottom of the page.'
     }
   },
   unmatchedAnswers: [],
   overallSummary: {
-    summaryText: 'Madhur demonstrated excellent understanding of Cell Biology and Photosynthesis. High accuracy in organelle identification.',
-    strengths: ['Photosynthesis chemical equation & diagram precision', 'High score in cellular biology questions'],
+    summaryText: 'Satyam demonstrated excellent understanding of Cell Biology and Plant Physiology. High accuracy in organelle identification and renal anatomy diagrams.',
+    strengths: ['Photosynthesis chemical equation & diagram precision', 'High score in cellular biology and nephron anatomy questions'],
     improvements: ['Review cardiac cycle & blood flow pathway (Q4)'],
     totalQuestions: 8,
     answeredCount: 7,

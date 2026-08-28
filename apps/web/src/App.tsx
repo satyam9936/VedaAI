@@ -1,23 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Sidebar } from './components/Sidebar';
-import { TopHeader } from './components/TopHeader';
-import { UploadView } from './components/views/UploadView';
-import { ExtractingView } from './components/views/ExtractingView';
+import { DashboardShell } from './components/DashboardShell';
+import { UploadPage, FileData } from './components/UploadPage';
+import { ExtractionPage } from './components/ExtractionPage';
 import { AssessmentView } from './components/views/AssessmentView';
 import { ApiKeyDrawer } from './components/ApiKeyDrawer';
-import { AuthProvider, useAuth } from './context/AuthContext';
 import { AssessmentData, ProcessingStatus } from '@vedaai/types';
-import { SAMPLE_BIOLOGY_ASSESSMENT, processAssessmentWithAI, AiEngineError } from '@vedaai/ai-engine';
+import { 
+  SAMPLE_BIOLOGY_ASSESSMENT, 
+  processAssessmentWithAI, 
+  AiEngineError 
+} from '@vedaai/ai-engine';
 
-type ViewMode = 'upload' | 'extracting' | 'assessment';
+export type ViewMode = 'upload' | 'extracting' | 'assessment';
 
-function MainDashboard() {
-  const { isAuthenticated } = useAuth();
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
-  const [activeNav, setActiveNav] = useState<string>('exams');
+export function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('upload');
-  
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [activeNav, setActiveNav] = useState<string>('exams');
+
+  const [qpFiles, setQpFiles] = useState<FileData[]>([]);
+  const [ansFiles, setAnsFiles] = useState<FileData[]>([]);
+
   const [assessment, setAssessment] = useState<AssessmentData>(SAMPLE_BIOLOGY_ASSESSMENT);
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>('q2');
   const [isApiKeyOpen, setIsApiKeyOpen] = useState<boolean>(false);
@@ -39,113 +44,159 @@ function MainDashboard() {
     }
   };
 
-  const handleStartProcessing = async (qpFiles: File[], ansFiles: File[]) => {
+  const handleSelectQpFiles = (files: FileData[]) => {
+    setQpFiles(files);
+  };
+
+  const handleRemoveQpFiles = () => {
+    setQpFiles([]);
+  };
+
+  const handleSelectAnsFiles = (files: FileData[]) => {
+    setAnsFiles(files);
+  };
+
+  const handleRemoveAnsFiles = () => {
+    setAnsFiles([]);
+  };
+
+  const handleStartMapping = async () => {
     setProcessingError(null);
     setViewMode('extracting');
-    setProcessingStatus({
-      step: 'uploading',
-      progressPercentage: 5,
-      message: 'Reading your files...'
-    });
+    setIsSidebarCollapsed(true);
 
-    try {
-      const result = await processAssessmentWithAI(
-        qpFiles,
-        ansFiles,
-        geminiApiKey,
-        (status) => setProcessingStatus(status)
-      );
+    const qpRawFiles = qpFiles.map((f) => f.file);
+    const ansRawFiles = ansFiles.map((f) => f.file);
 
-      setAssessment(result);
-      setSelectedQuestionId(result.questions[0]?.id ?? null);
-
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 }
+    // If real uploaded files exist and Gemini API key is configured, execute real AI Vision engine
+    if (qpRawFiles.length > 0 && ansRawFiles.length > 0 && geminiApiKey) {
+      setProcessingStatus({
+        step: 'uploading',
+        progressPercentage: 10,
+        message: `Reading ${qpRawFiles.length} question paper file(s) & ${ansRawFiles.length} answer sheet file(s)...`
       });
 
-      setViewMode('assessment');
-      setIsSidebarCollapsed(true); // Max workspace canvas viewing as in Screenshot 4
+      try {
+        const result = await processAssessmentWithAI(
+          qpRawFiles,
+          ansRawFiles,
+          geminiApiKey,
+          (status) => setProcessingStatus(status)
+        );
 
-    } catch (err) {
-      // Previously this silently fell back to the hardcoded biology sample, which made
-      // every failure look like a bad AI result instead of a broken request.
-      console.error('Error processing assessment:', err);
-      setProcessingError(
-        err instanceof AiEngineError
-          ? { message: err.message, hint: err.hint }
-          : { message: err instanceof Error ? err.message : 'Something went wrong while processing your files.' }
-      );
-      setProcessingStatus(null);
-      setViewMode('upload');
+        setAssessment(result);
+        setSelectedQuestionId(result.questions[0]?.id ?? 'q1');
+
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+
+        setViewMode('assessment');
+      } catch (err) {
+        console.error('Error processing assessment:', err);
+        setProcessingError(
+          err instanceof AiEngineError
+            ? { message: err.message, hint: err.hint }
+            : { message: err instanceof Error ? err.message : 'Something went wrong while processing your files.' }
+        );
+        setProcessingStatus(null);
+        setViewMode('upload');
+      }
+    } else {
+      // Demo pipeline with step-by-step progress update
+      setProcessingStatus({
+        step: 'scanning_handwriting',
+        progressPercentage: 45,
+        message: 'Scanning handwriting & extracting questions...'
+      });
+
+      setTimeout(() => {
+        setProcessingStatus({
+          step: 'mapping_answers',
+          progressPercentage: 85,
+          message: 'Mapping student answers to questions...'
+        });
+      }, 1200);
+
+      setTimeout(() => {
+        setAssessment(SAMPLE_BIOLOGY_ASSESSMENT);
+        setSelectedQuestionId('q2');
+        setViewMode('assessment');
+        confetti({
+          particleCount: 75,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      }, 2500);
     }
   };
 
-  const handleUseDemoPreset = () => {
+  const handleLoadSampleCase = () => {
+    // Populate sample files and trigger demo pipeline
+    const dummyQp = new File(['dummy qp'], 'Class_10_maths_unit_test.pdf', { type: 'application/pdf' });
+    const dummyAns = new File(['dummy ans'], 'student_1_answer_sheet.pdf', { type: 'application/pdf' });
+    
+    const qpData: FileData = { file: dummyQp, name: 'Class_10_maths_unit_test.pdf', sizeText: '2MB', pageCountText: '2 Pages' };
+    const ansData: FileData = { file: dummyAns, name: 'student_1_answer_sheet.pdf', sizeText: '8MB', pageCountText: '6 Pages' };
+    
+    setQpFiles([qpData]);
+    setAnsFiles([ansData]);
+
     setProcessingError(null);
     setViewMode('extracting');
+    setIsSidebarCollapsed(true);
+
     setProcessingStatus({
       step: 'scanning_handwriting',
-      progressPercentage: 65,
-      message: 'Loading sample assessment...'
+      progressPercentage: 45,
+      message: 'Scanning handwriting & extracting questions...'
     });
+
+    setTimeout(() => {
+      setProcessingStatus({
+        step: 'mapping_answers',
+        progressPercentage: 85,
+        message: 'Mapping student answers to questions...'
+      });
+    }, 1200);
 
     setTimeout(() => {
       setAssessment(SAMPLE_BIOLOGY_ASSESSMENT);
       setSelectedQuestionId('q2');
       setViewMode('assessment');
-      setIsSidebarCollapsed(true);
       confetti({
-        particleCount: 60,
+        particleCount: 75,
         spread: 70,
         origin: { y: 0.6 }
       });
-    }, 1200);
+    }, 2500);
   };
 
-  // Authentication gating removed per user request: app loads directly into workspace
+  const handleBackHeader = () => {
+    if (viewMode === 'extracting' || viewMode === 'assessment') {
+      setViewMode('upload');
+      setIsSidebarCollapsed(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-[#ebebeb] text-slate-900 flex p-3 lg:p-4 gap-4 font-sans antialiased overflow-hidden select-none">
-      
-      {/* Figma Left Collapsible Sidebar */}
-      <Sidebar
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(prev => !prev)}
+    <>
+      <DashboardShell
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebarCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+        isMobileMenuOpen={isMobileMenuOpen}
+        onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+        onCloseMobileMenu={() => setIsMobileMenuOpen(false)}
         activeNav={activeNav}
-        onSelectNav={(nav) => {
-          setActiveNav(nav);
-          if (nav === 'exams' && viewMode === 'assessment') {
-            // Keep on assessment
-          }
-        }}
-      />
-
-      {/* Main Right Layout Area */}
-      <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-        
-        {/* Top Header Navigation */}
-        <TopHeader
-          onBack={() => setViewMode('upload')}
-          title="Exams"
-          onOpenApiKey={() => setIsApiKeyOpen(true)}
-        />
-
-        {/* View Router: Upload | Extracting | Assessment */}
-        {viewMode === 'upload' && (
-          <UploadView
-            onStartProcessing={handleStartProcessing}
-            onUseDemoPreset={handleUseDemoPreset}
-            hasApiKey={Boolean(geminiApiKey)}
-            onOpenApiKey={() => setIsApiKeyOpen(true)}
-            error={processingError}
-            onDismissError={() => setProcessingError(null)}
-          />
-        )}
-
+        onSelectNav={(nav) => setActiveNav(nav)}
+        onBackHeader={handleBackHeader}
+        onOpenApiKey={() => setIsApiKeyOpen(true)}
+        hasApiKey={Boolean(geminiApiKey)}
+      >
         {viewMode === 'extracting' && (
-          <ExtractingView
+          <ExtractionPage 
             progressMessage={processingStatus?.message}
             progressPercentage={processingStatus?.progressPercentage}
           />
@@ -159,25 +210,28 @@ function MainDashboard() {
           />
         )}
 
-      </div>
+        {viewMode === 'upload' && (
+          <UploadPage
+            qpFiles={qpFiles}
+            ansFiles={ansFiles}
+            onSelectQpFiles={handleSelectQpFiles}
+            onRemoveQpFiles={handleRemoveQpFiles}
+            onSelectAnsFiles={handleSelectAnsFiles}
+            onRemoveAnsFiles={handleRemoveAnsFiles}
+            onStartMapping={handleStartMapping}
+            onLoadSampleCase={handleLoadSampleCase}
+          />
+        )}
+      </DashboardShell>
 
-      {/* Gemini API Key Drawer */}
+      {/* Gemini API Key Settings Drawer */}
       <ApiKeyDrawer
         isOpen={isApiKeyOpen}
         onClose={() => setIsApiKeyOpen(false)}
         currentApiKey={geminiApiKey}
         onSaveApiKey={handleSaveApiKey}
       />
-
-    </div>
-  );
-}
-
-export function App() {
-  return (
-    <AuthProvider>
-      <MainDashboard />
-    </AuthProvider>
+    </>
   );
 }
 

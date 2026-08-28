@@ -1,146 +1,201 @@
 import React from 'react';
 import { 
-  Sparkles, 
-  LayoutGrid, 
+  Grid2X2, 
   Users, 
   FileText, 
   Clipboard,
-  PieChart, 
+  Clock3, 
   Settings, 
-  PanelLeftClose, 
   PanelLeft,
-  ChevronsRight
+  ChevronsRight,
+  Sparkles,
+  X
 } from 'lucide-react';
+import { SchoolCard } from './SchoolCard';
 
 interface SidebarProps {
   isCollapsed: boolean;
-  onToggleCollapse: () => void;
-  activeNav: string;
-  onSelectNav: (nav: string) => void;
+  onToggleCollapse?: () => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
+  activeNav?: string;
+  onSelectNav?: (nav: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed,
   onToggleCollapse,
-  activeNav,
+  isMobileOpen = false,
+  onCloseMobile,
+  activeNav = 'exams',
   onSelectNav
 }) => {
   const navItems = [
-    { id: 'home', label: 'Home', icon: LayoutGrid },
+    { id: 'home', label: 'Home', icon: Grid2X2 },
     { id: 'classroom', label: 'My Classroom', icon: Users },
     { id: 'assignments', label: 'Assignments', icon: FileText },
     { id: 'exams', label: 'Exams', icon: Clipboard },
-    { id: 'library', label: 'My Library', icon: PieChart },
+    { id: 'library', label: 'My Library', icon: Clock3 },
   ];
 
-  return (
-    <aside className={`bg-white rounded-3xl shadow-sm border border-slate-200/80 transition-all duration-300 flex flex-col justify-between p-4 z-30 shrink-0 select-none ${
-      isCollapsed ? 'w-20 items-center' : 'w-64'
-    }`}>
-      
-      {/* Top Header Logo & Collapse Toggle */}
-      <div className="space-y-5 w-full">
-        <div className={`flex items-center w-full ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+  const handleNavClick = (id: string) => {
+    onSelectNav?.(id);
+    onCloseMobile?.();
+  };
+
+  const sidebarContent = (
+    <div className="flex flex-col justify-between h-full w-full">
+      <div className="flex flex-col w-full">
+        {/* Logo Branding & Collapse/Close */}
+        <div className="flex items-center justify-between w-full mb-6">
           <div className="flex items-center gap-3">
-            {/* VedaAI Logo Icon */}
-            <div className="h-10 w-10 rounded-2xl bg-black flex items-center justify-center text-white font-black text-xl shadow-md">
+            <div className="w-[44px] h-[44px] rounded-2xl bg-[#292929] flex items-center justify-center text-white font-extrabold text-2xl shadow-sm">
               V
             </div>
-            {!isCollapsed && (
-              <span className="font-extrabold text-xl tracking-tight text-slate-900">
-                VedaAI
-              </span>
-            )}
+            <span className="font-bold text-[25px] tracking-tight text-[#292929] font-sans">
+              VedaAI
+            </span>
           </div>
 
-          {!isCollapsed && (
+          {/* Desktop collapse toggle */}
+          {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
-              className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
+              className="hidden lg:block p-1 text-[#777777] hover:text-[#292929] transition"
               title="Collapse sidebar"
             >
-              <PanelLeftClose className="h-5 w-5" />
+              <PanelLeft className="w-[18px] h-[18px] stroke-[2]" />
+            </button>
+          )}
+
+          {/* Mobile close button */}
+          {onCloseMobile && (
+            <button
+              onClick={onCloseMobile}
+              className="lg:hidden p-1.5 rounded-lg text-[#777777] hover:text-[#292929] hover:bg-[#F5F5F5] transition"
+              title="Close drawer"
+            >
+              <X className="w-5 h-5 stroke-[2]" />
             </button>
           )}
         </div>
 
-        {/* AI Teacher's Toolkit Pill CTA Button */}
-        {isCollapsed ? (
-          <div className="flex justify-center w-full">
-            <button 
-              onClick={onToggleCollapse}
-              className="h-11 w-11 rounded-full bg-slate-900 border-2 border-orange-500 flex items-center justify-center text-orange-500 shadow-md hover:scale-105 transition"
-            >
-              <Sparkles className="h-5 w-5 text-orange-400" />
-            </button>
-          </div>
-        ) : (
-          <button className="w-full py-2.5 px-4 rounded-full bg-slate-900 border-2 border-orange-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md hover:bg-slate-800 transition">
-            <Sparkles className="h-4 w-4 text-orange-400" />
-            <span>AI Teacher's Toolkit</span>
+        {/* AI Teacher's Toolkit Button */}
+        <div className="w-full flex justify-center mb-6">
+          <button className="w-full h-[50px] rounded-[26px] bg-[#333333] border-[3px] border-[#F15A35] text-white font-medium text-[16px] flex items-center justify-center gap-2 shadow-sm hover:bg-[#404040] transition active:scale-[0.98]">
+            <span>✦ AI Teacher's Toolkit</span>
           </button>
-        )}
+        </div>
 
-        {/* Navigation Items */}
-        <nav className="space-y-1 pt-2 w-full">
+        {/* Navigation List */}
+        <nav className="flex flex-col gap-1.5 w-full">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeNav === item.id;
             return (
               <button
                 key={item.id}
-                onClick={() => onSelectNav(item.id)}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
+                onClick={() => handleNavClick(item.id)}
+                className={`w-full flex items-center gap-3.5 px-[16px] h-[44px] rounded-[9px] text-[16px] transition font-sans ${
                   isActive
-                    ? 'bg-slate-100 text-slate-900 font-bold'
-                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-                } ${isCollapsed ? 'justify-center px-0' : ''}`}
+                    ? 'bg-[#EEEEEE] text-[#292929] font-medium'
+                    : 'text-[#777777] font-normal hover:text-[#292929] hover:bg-[#F7F7F7]'
+                }`}
               >
-                <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-slate-900' : 'text-slate-400'}`} />
-                {!isCollapsed && <span>{item.label}</span>}
+                <Icon className={`w-[20px] h-[20px] stroke-[2] ${isActive ? 'text-[#292929]' : 'text-[#777777]'}`} />
+                <span>{item.label}</span>
               </button>
             );
           })}
         </nav>
       </div>
 
-      {/* Bottom Section: Settings & School Emblem Card / Expand Button */}
-      <div className="space-y-3 pt-4 border-t border-slate-100 w-full">
-        {!isCollapsed && (
-          <button className="w-full flex items-center gap-3 px-3.5 py-2 text-xs font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-2xl transition">
-            <Settings className="h-4.5 w-4.5 text-slate-400" />
-            <span>Settings</span>
-          </button>
-        )}
+      {/* Sidebar Bottom */}
+      <div className="flex flex-col items-center gap-3 w-full pt-4 border-t border-[#E3E3E3]/40 mt-auto">
+        <button className="w-full flex items-center gap-3.5 px-[16px] py-1.5 text-[16px] font-normal text-[#777777] hover:text-[#292929] rounded-[9px] transition">
+          <Settings className="w-[20px] h-[20px] stroke-[2] text-[#777777]" />
+          <span>Settings</span>
+        </button>
 
-        {/* Delhi Public School Card */}
-        {isCollapsed ? (
-          <div className="flex flex-col items-center gap-3 w-full">
-            <div className="h-10 w-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold text-xs shadow-sm">
-              <span className="text-base">🌳</span>
+        <SchoolCard isCollapsed={false} />
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {isMobileOpen && (
+        <div
+          onClick={onCloseMobile}
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-40 lg:hidden transition-opacity duration-300"
+        />
+      )}
+
+      {/* Mobile Drawer */}
+      <aside
+        className={`fixed top-0 left-0 bottom-0 w-[300px] sm:w-[327px] bg-white z-50 p-5 shadow-2xl flex flex-col justify-between lg:hidden transition-transform duration-300 ease-out pb-safe pt-safe ${
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {sidebarContent}
+      </aside>
+
+      {/* Desktop Collapsed View */}
+      {isCollapsed ? (
+        <aside className="hidden lg:flex w-[58px] bg-white rounded-[18px] h-full flex-col justify-between items-center py-5 z-20 shrink-0 select-none shadow-[0_4px_20px_rgba(0,0,0,0.04)] border border-[#E3E3E3]/60 transition-all duration-300">
+          <div className="flex flex-col items-center gap-6 w-full">
+            <div className="w-10 h-10 rounded-2xl bg-[#292929] flex items-center justify-center text-white font-bold text-xl shadow-sm">
+              V
             </div>
+
+            <button 
+              onClick={onToggleCollapse}
+              className="w-10 h-10 rounded-full bg-[#333333] border-[2.5px] border-[#F15A35] flex items-center justify-center text-[#F15A35] shadow-sm hover:scale-105 transition"
+              title="AI Teacher's Toolkit"
+            >
+              <Sparkles className="w-5 h-5 text-[#F15A35]" />
+            </button>
+
+            <nav className="flex flex-col items-center gap-3 mt-2 w-full px-2">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeNav === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleNavClick(item.id)}
+                    className={`w-10 h-10 rounded-[9px] flex items-center justify-center transition ${
+                      isActive 
+                        ? 'bg-[#EEEEEE] text-[#292929]' 
+                        : 'text-[#777777] hover:text-[#292929] hover:bg-[#F5F5F5]'
+                    }`}
+                    title={item.label}
+                  >
+                    <Icon className="w-5 h-5 stroke-[2]" />
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div className="flex flex-col items-center gap-4 w-full px-2">
+            <SchoolCard isCollapsed={true} />
             <button
               onClick={onToggleCollapse}
-              className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition"
-              title="Expand sidebar"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#777777] hover:text-[#292929] hover:bg-[#F5F5F5] transition"
+              title="Expand Sidebar"
             >
-              <ChevronsRight className="h-4 w-4" />
+              <ChevronsRight className="w-4 h-4" />
             </button>
           </div>
-        ) : (
-          <div className="p-3 bg-slate-100/80 rounded-2xl border border-slate-200/80 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-white border border-emerald-200 flex items-center justify-center text-emerald-800 font-black text-xs shrink-0 shadow-sm">
-              <span className="text-base">🌳</span>
-            </div>
-            <div className="truncate">
-              <span className="font-bold text-xs text-slate-900 block truncate">Delhi Public School</span>
-              <span className="text-[10px] text-slate-500 block truncate font-medium">Bokaro Steel City</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-    </aside>
+        </aside>
+      ) : (
+        /* Desktop Expanded View */
+        <aside className="hidden lg:flex w-[327px] h-full bg-white rounded-[18px] flex-col justify-between p-6 z-20 shrink-0 select-none shadow-[0_4px_20px_rgba(0,0,0,0.04)] border border-[#E3E3E3]/60 transition-all duration-300">
+          {sidebarContent}
+        </aside>
+      )}
+    </>
   );
 };
-

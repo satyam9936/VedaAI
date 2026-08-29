@@ -124,11 +124,14 @@ export async function sendChatMessage(
   try {
     data = JSON.parse(rawText);
   } catch {
-    throw new Error(`Server returned ${response.status} (non-JSON response). Please check that GEMINI_API_KEY is configured in Vercel Environment Variables.`);
+    if (!response.ok) {
+      throw new Error(`Server error (${response.status}): ${rawText.slice(0, 200) || 'Check Vercel deployment logs'}`);
+    }
+    throw new Error('Received unexpected response format from server.');
   }
 
   if (!response.ok) {
-    throw new Error(data.error || 'Chat request failed');
+    throw new Error(data.error || data.hint || 'Chat request failed');
   }
 
   return data.reply;

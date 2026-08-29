@@ -5,7 +5,12 @@
  * grading rationale, score breakdowns, and generating model answers.
  */
 
-import { ServerAiError } from './geminiProxy.js';
+export class ServerAiError extends Error {
+  constructor(message: string, public readonly hint?: string, public readonly statusCode: number = 500) {
+    super(message);
+    this.name = 'ServerAiError';
+  }
+}
 
 const MODEL = 'gemini-3.6-flash';
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;

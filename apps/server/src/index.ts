@@ -135,7 +135,7 @@ const upload = multer({
  * GET /api/health
  * Health check — also tells the frontend whether the API key is configured.
  */
-app.get('/api/health', (_req, res) => {
+app.get(['/api/health', '/health'], (_req, res) => {
   const hasKey = GEMINI_API_KEY.length > 0 && GEMINI_API_KEY !== 'your_gemini_api_key_here';
   res.json({
     status: 'ok',
@@ -153,7 +153,7 @@ app.get('/api/health', (_req, res) => {
  *   - answerSheet:   one or more files (answer sheet pages)
  */
 app.post(
-  '/api/assess',
+  ['/api/assess', '/assess'],
   upload.fields([
     { name: 'questionPaper', maxCount: 10 },
     { name: 'answerSheet', maxCount: 10 },
@@ -238,7 +238,7 @@ app.post(
  *   - messages: Array<{ role: 'user' | 'assistant', content: string }>
  *   - context: AssessmentChatContext (optional)
  */
-app.post('/api/chat', async (req, res) => {
+app.post(['/api/chat', '/chat'], async (req, res) => {
   const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
   if (!checkRateLimit(clientIp)) {
     res.status(429).json({

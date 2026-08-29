@@ -119,7 +119,14 @@ export async function sendChatMessage(
     throw new Error('Could not reach VedaAI server for AI Tutor chat.');
   }
 
-  const data = await response.json();
+  const rawText = await response.text();
+  let data: any;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    throw new Error(`Server returned ${response.status} (non-JSON response). Please check that GEMINI_API_KEY is configured in Vercel Environment Variables.`);
+  }
+
   if (!response.ok) {
     throw new Error(data.error || 'Chat request failed');
   }

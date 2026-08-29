@@ -9,6 +9,8 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=@vedaai/web",
+    "dev:server": "npm run dev --workspace=@vedaai/server",
+    "dev:all": "npm run dev --workspace=@vedaai/web & npm run dev --workspace=@vedaai/server",
     "build": "npm run build --workspaces --if-present",
     "preview": "npm run preview --workspace=@vedaai/web"
   },

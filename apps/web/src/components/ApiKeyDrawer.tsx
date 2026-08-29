@@ -6,6 +6,7 @@ interface ApiKeyDrawerProps {
   onClose: () => void;
   currentApiKey: string | null;
   onSaveApiKey: (key: string | null) => void;
+  backendConnected?: boolean;
 }
 
 export const ApiKeyDrawer: React.FC<ApiKeyDrawerProps> = ({
@@ -13,6 +14,7 @@ export const ApiKeyDrawer: React.FC<ApiKeyDrawerProps> = ({
   onClose,
   currentApiKey,
   onSaveApiKey,
+  backendConnected = false,
 }) => {
   const [inputKey, setInputKey] = useState(currentApiKey || '');
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -58,6 +60,18 @@ export const ApiKeyDrawer: React.FC<ApiKeyDrawerProps> = ({
           </div>
 
           <div className="space-y-4">
+            {/* Backend Connected Banner */}
+            {backendConnected && (
+              <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-xs text-emerald-300 space-y-2">
+                <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+                  <CheckCircle className="h-4 w-4" />
+                  <span>🟢 AI Connected via Server</span>
+                </div>
+                <p className="text-emerald-300/80 text-[11px] leading-relaxed">
+                  The backend server has a Gemini API key configured. You don't need to add one manually — the app works automatically!
+                </p>
+              </div>
+            )}
             <div className="p-3 bg-slate-850 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-2">
               <div className="flex items-center gap-2 text-veda-400 font-semibold">
                 <ShieldCheck className="h-4 w-4" />
@@ -71,7 +85,7 @@ export const ApiKeyDrawer: React.FC<ApiKeyDrawerProps> = ({
             <form onSubmit={handleSave} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-200">
-                  Google Gemini API Key
+                  {backendConnected ? 'Custom API Key (Optional Override)' : 'Google Gemini API Key'}
                 </label>
                 <input
                   type="password"

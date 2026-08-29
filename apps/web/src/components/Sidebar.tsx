@@ -20,6 +20,7 @@ interface SidebarProps {
   onCloseMobile?: () => void;
   activeNav?: string;
   onSelectNav?: (nav: string) => void;
+  onOpenTeacherToolkit?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -28,7 +29,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen = false,
   onCloseMobile,
   activeNav = 'exams',
-  onSelectNav
+  onSelectNav,
+  onOpenTeacherToolkit,
 }) => {
   const navItems = [
     { id: 'home', label: 'Home', icon: Grid2X2 },
@@ -82,7 +84,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* AI Teacher's Toolkit Button */}
         <div className="w-full flex justify-center mb-6">
-          <button className="w-full h-[50px] rounded-[26px] bg-[#333333] border-[3px] border-[#F15A35] text-white font-medium text-[16px] flex items-center justify-center gap-2 shadow-sm hover:bg-[#404040] transition active:scale-[0.98]">
+          <button 
+            onClick={() => {
+              onOpenTeacherToolkit?.();
+              onCloseMobile?.();
+            }}
+            className="w-full h-[50px] rounded-[26px] bg-[#333333] border-[3px] border-[#F15A35] text-white font-medium text-[16px] flex items-center justify-center gap-2 shadow-sm hover:bg-[#404040] transition active:scale-[0.98] cursor-pointer"
+          >
             <span>✦ AI Teacher's Toolkit</span>
           </button>
         </div>
@@ -150,8 +158,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             <button 
-              onClick={onToggleCollapse}
-              className="w-10 h-10 rounded-full bg-[#333333] border-[2.5px] border-[#F15A35] flex items-center justify-center text-[#F15A35] shadow-sm hover:scale-105 transition"
+              onClick={onOpenTeacherToolkit}
+              className="w-10 h-10 rounded-full bg-[#333333] border-[2.5px] border-[#F15A35] flex items-center justify-center text-[#F15A35] shadow-sm hover:scale-105 transition cursor-pointer"
               title="AI Teacher's Toolkit"
             >
               <Sparkles className="w-5 h-5 text-[#F15A35]" />

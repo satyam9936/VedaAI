@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import teacherMascot from '../assets/teacher-mascot.png';
 import { UploadCard } from './UploadCard';
 import { UploadedFileCard } from './UploadedFileCard';
+import { CameraCaptureModal } from './CameraCaptureModal';
 
 export interface FileData {
   file: File;
@@ -32,29 +33,31 @@ export const UploadPage: React.FC<UploadPageProps> = ({
   onStartMapping,
   onLoadSampleCase,
 }) => {
+  const [cameraModalType, setCameraModalType] = useState<'Question Paper' | 'Answer Sheet' | null>(null);
+
   const isBothUploaded = qpFiles.length > 0 && ansFiles.length > 0;
 
   const handleQpUpload = (files: File[]) => {
-    const fileDatas: FileData[] = files.map((file) => {
+    const fileDatas: FileData[] = files.map((file, i) => {
       const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);
       return {
         file,
         name: file.name,
         sizeText: `${sizeInMb}MB`,
-        pageCountText: '2 Pages',
+        pageCountText: files.length > 1 ? `Page ${i + 1}` : '1 Page',
       };
     });
     onSelectQpFiles(fileDatas);
   };
 
   const handleAnsUpload = (files: File[]) => {
-    const fileDatas: FileData[] = files.map((file) => {
+    const fileDatas: FileData[] = files.map((file, i) => {
       const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);
       return {
         file,
         name: file.name,
         sizeText: `${sizeInMb}MB`,
-        pageCountText: '6 Pages',
+        pageCountText: files.length > 1 ? `Page ${i + 1}` : '1 Page',
       };
     });
     onSelectAnsFiles(fileDatas);
@@ -96,7 +99,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
 
       {/* Subtitle */}
       <p className="text-sm sm:text-base lg:text-[18px] font-normal text-[#292929] text-center mt-1.5 sm:mt-2.5 font-sans">
-        Upload both files to get started
+        Upload files or take photos with camera to get started
       </p>
 
       {/* AI Teacher Mascot PNG Asset */}
@@ -108,7 +111,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
         />
       </div>
 
-      {/* Upload Container (Supports selecting multiple files per card) */}
+      {/* Upload Container (Supports selecting multiple files & camera snaps) */}
       <div className="w-full max-w-[850px] min-h-[190px] lg:h-[220px] bg-white rounded-[22px] p-3 sm:p-[12px] shadow-sm flex flex-col md:flex-row items-center justify-between gap-3.5 border border-[#E3E3E3]/60 shrink-0">
         {/* Left Upload Card: Question Paper */}
         {qpFiles.length > 0 ? (
@@ -123,6 +126,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
           <UploadCard
             titleSuffix="Question Paper"
             onFilesSelected={handleQpUpload}
+            onOpenCamera={() => setCameraModalType('Question Paper')}
           />
         )}
 
@@ -139,6 +143,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
           <UploadCard
             titleSuffix="Answer Sheet"
             onFilesSelected={handleAnsUpload}
+            onOpenCamera={() => setCameraModalType('Answer Sheet')}
           />
         )}
       </div>
@@ -175,6 +180,21 @@ export const UploadPage: React.FC<UploadPageProps> = ({
         )}
       </div>
 
+      {/* Camera Capture Modal */}
+      <CameraCaptureModal
+        isOpen={cameraModalType !== null}
+        onClose={() => setCameraModalType(null)}
+        titleSuffix={cameraModalType || 'Question Paper'}
+        onAttachFiles={(files) => {
+          if (cameraModalType === 'Question Paper') {
+            handleQpUpload(files);
+          } else if (cameraModalType === 'Answer Sheet') {
+            handleAnsUpload(files);
+          }
+        }}
+      />
+
     </div>
   );
 };
+

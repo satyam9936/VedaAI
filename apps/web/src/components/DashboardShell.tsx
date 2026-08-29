@@ -13,6 +13,8 @@ interface DashboardShellProps {
   onBackHeader?: () => void;
   onOpenApiKey?: () => void;
   hasApiKey?: boolean;
+  backendConnected?: boolean;
+  onOpenTeacherToolkit?: () => void;
   children: React.ReactNode;
 }
 
@@ -27,6 +29,8 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
   onBackHeader,
   onOpenApiKey,
   hasApiKey,
+  backendConnected,
+  onOpenTeacherToolkit,
   children,
 }) => {
   return (
@@ -42,6 +46,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
           onCloseMobile={onCloseMobileMenu}
           activeNav={activeNav}
           onSelectNav={onSelectNav}
+          onOpenTeacherToolkit={onOpenTeacherToolkit}
         />
 
         {/* Main Content Workspace Filling Remaining Viewport */}
@@ -51,6 +56,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
             onOpenMobileMenu={onOpenMobileMenu}
             onOpenApiKey={onOpenApiKey}
             hasApiKey={hasApiKey}
+            backendConnected={backendConnected}
             title="Exams" 
           />
           <main className="flex-1 flex flex-col overflow-hidden relative w-full h-full">

@@ -15,6 +15,7 @@ interface TopBarProps {
   onOpenMobileMenu?: () => void;
   onOpenApiKey?: () => void;
   hasApiKey?: boolean;
+  backendConnected?: boolean;
   title?: string;
 }
 
@@ -23,6 +24,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenMobileMenu,
   onOpenApiKey,
   hasApiKey = false,
+  backendConnected = false,
   title = 'Exams' 
 }) => {
   return (
@@ -68,7 +70,9 @@ export const TopBar: React.FC<TopBarProps> = ({
             title="Configure Gemini API Key"
           >
             <Key className="w-4 h-4" />
-            <span className="hidden md:inline">{hasApiKey ? 'API Key Active' : 'Add Gemini Key'}</span>
+            <span className="hidden md:inline">
+              {backendConnected ? '🟢 AI Connected' : hasApiKey ? 'API Key Active' : 'Add Gemini Key'}
+            </span>
           </button>
         )}
 

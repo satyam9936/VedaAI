@@ -15,10 +15,10 @@ import { AssessmentData, ProcessingStatus } from '@vedaai/types';
 // ---------------------------------------------------------------------------
 
 /**
- * Backend server URL. In development, the Express server runs on port 3001.
- * In production, set VITE_BACKEND_URL to your deployed server URL.
+ * Backend server URL. In local dev, defaults to port 3001.
+ * In production (e.g. Vercel), defaults to relative '' so it hits the same origin.
  */
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
 
 // ---------------------------------------------------------------------------
 // Health check — is the backend available and configured?

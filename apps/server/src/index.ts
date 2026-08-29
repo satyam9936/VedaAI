@@ -300,21 +300,26 @@ app.use((err: any, _req: express.Request, res: express.Response, next: express.N
 // Start
 // ---------------------------------------------------------------------------
 
-app.listen(PORT, () => {
-  const hasKey = GEMINI_API_KEY.length > 0 && GEMINI_API_KEY !== 'your_gemini_api_key_here';
-  console.log('');
-  console.log('  ╔══════════════════════════════════════════════╗');
-  console.log('  ║         🚀 VedaAI Backend Server             ║');
-  console.log(`  ║         Running on port ${PORT}                 ║`);
-  console.log('  ╠══════════════════════════════════════════════╣');
-  console.log(`  ║  API Key: ${hasKey ? '✅ Configured' : '❌ NOT SET — add to .env'}       ║`);
-  console.log(`  ║  Health:  http://localhost:${PORT}/api/health    ║`);
-  console.log(`  ║  Assess:  POST http://localhost:${PORT}/api/assess║`);
-  console.log('  ╚══════════════════════════════════════════════╝');
-  console.log('');
-  if (!hasKey) {
-    console.log('  ⚠️  Set GEMINI_API_KEY in apps/server/.env to enable AI processing.');
-    console.log('  📎  Get a free key at: https://aistudio.google.com/app/apikey');
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    const hasKey = GEMINI_API_KEY.length > 0 && GEMINI_API_KEY !== 'your_gemini_api_key_here';
     console.log('');
-  }
-});
+    console.log('  ╔══════════════════════════════════════════════╗');
+    console.log('  ║         🚀 VedaAI Backend Server             ║');
+    console.log(`  ║         Running on port ${PORT}                 ║`);
+    console.log('  ╠══════════════════════════════════════════════╣');
+    console.log(`  ║  API Key: ${hasKey ? '✅ Configured' : '❌ NOT SET — add to .env'}       ║`);
+    console.log(`  ║  Health:  http://localhost:${PORT}/api/health    ║`);
+    console.log(`  ║  Assess:  POST http://localhost:${PORT}/api/assess║`);
+    console.log('  ╚══════════════════════════════════════════════╝');
+    console.log('');
+    if (!hasKey) {
+      console.log('  ⚠️  Set GEMINI_API_KEY in apps/server/.env to enable AI processing.');
+      console.log('  📎  Get a free key at: https://aistudio.google.com/app/apikey');
+      console.log('');
+    }
+  });
+}
+
+export default app;
+

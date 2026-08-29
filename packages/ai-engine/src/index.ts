@@ -4,3 +4,4 @@ export * from './fileUtils';
 export * from './aiService';
 export * from './backendClient';
 export * from './chatService';
+export * from './templateGenerator';

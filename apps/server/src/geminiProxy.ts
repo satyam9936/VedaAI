@@ -17,11 +17,18 @@ import {
 } from '@vedaai/types';
 
 // ---------------------------------------------------------------------------
-// Model config — keep in sync with the client-side aiService.ts
-// ---------------------------------------------------------------------------
+const CANDIDATE_MODELS = [
+  'gemini-3.5-flash',
+  'gemini-3.1-flash-lite',
+  'gemini-flash-latest',
+  'gemini-flash-lite-latest',
+  'gemini-3.7-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-2.5-pro',
+];
 
-const MODEL = 'gemini-3.6-flash';
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const MAX_INLINE_BYTES = 18 * 1024 * 1024;
 const MAX_EDGE_PX = 1600;
 const JPEG_QUALITY = 85; // sharp uses 0-100 integer
@@ -300,27 +307,40 @@ interface WireResult {
 export async function processAssessmentOnServer(
   qpFiles: Array<{ buffer: Buffer; originalname: string; mimetype: string }>,
   ansFiles: Array<{ buffer: Buffer; originalname: string; mimetype: string }>,
-  apiKey: string
+  apiKey: string,
+  preRenderedPages?: { qpPages?: PageImage[]; ansPages?: PageImage[] }
 ): Promise<AssessmentData> {
   if (!apiKey || apiKey.trim().length === 0) {
     throw new ServerAiError(
       'No Gemini API key configured on the server.',
-      'Set GEMINI_API_KEY in your .env file.',
+      'Set GEMINI_API_KEY in your .env file or add your key via the key icon in the top bar.',
       503
     );
   }
 
-  if (qpFiles.length === 0 || ansFiles.length === 0) {
-    throw new ServerAiError(
-      'Upload both a question paper and an answer sheet.',
-      undefined,
-      400
-    );
-  }
+  let qpPages: PageImage[] = [];
+  let ansPages: PageImage[] = [];
 
-  // Convert files to page images
-  const qpPages = await fileBuffersToPages(qpFiles);
-  const ansPages = await fileBuffersToPages(ansFiles);
+  if (
+    preRenderedPages?.qpPages &&
+    preRenderedPages.qpPages.length > 0 &&
+    preRenderedPages?.ansPages &&
+    preRenderedPages.ansPages.length > 0
+  ) {
+    qpPages = preRenderedPages.qpPages;
+    ansPages = preRenderedPages.ansPages;
+  } else {
+    if (qpFiles.length === 0 || ansFiles.length === 0) {
+      throw new ServerAiError(
+        'Upload both a question paper and an answer sheet.',
+        undefined,
+        400
+      );
+    }
+    // Convert files to page images
+    qpPages = await fileBuffersToPages(qpFiles);
+    ansPages = await fileBuffersToPages(ansFiles);
+  }
 
   // Check total payload size
   const bytes = estimatePayloadBytes(qpPages) + estimatePayloadBytes(ansPages);
@@ -358,75 +378,93 @@ async function callGeminiVisionAPI(
     parts.push({ inlineData: { mimeType: p.mimeType, data: p.base64 } });
   });
 
-  let response: Response;
-  try {
-    response = await fetch(ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: RESPONSE_SCHEMA,
-          temperature: 0.1,
-          maxOutputTokens: 65536,
-        },
-      }),
-    });
-  } catch {
-    throw new ServerAiError(
-      'Could not reach the Gemini API from the server.',
-      'Check internet connection and firewall settings.',
-      502
-    );
+  const requestPayload = {
+    contents: [{ role: 'user', parts }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: RESPONSE_SCHEMA,
+      temperature: 0.1,
+      maxOutputTokens: 16384,
+    },
+  };
+
+  let lastError: ServerAiError | null = null;
+
+  for (let i = 0; i < CANDIDATE_MODELS.length; i++) {
+    const model = CANDIDATE_MODELS[i];
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(requestPayload),
+        signal: AbortSignal.timeout(24000),
+      });
+
+      if (!response.ok) {
+        lastError = await describeHttpError(response, model);
+        continue; // Try next model immediately
+      }
+
+      const data = await response.json();
+
+      if (data.promptFeedback?.blockReason) {
+        throw new ServerAiError(
+          `Gemini blocked the request (${data.promptFeedback.blockReason}).`,
+          'This usually means a page was misread as unsafe content.',
+          422
+        );
+      }
+
+      const candidate = data.candidates?.[0];
+      if (!candidate) {
+        lastError = new ServerAiError('Gemini returned no result for your pages.', 'Try clearer scans.', 502);
+        continue;
+      }
+
+      const finish = candidate.finishReason;
+      if (finish === 'MAX_TOKENS') {
+        throw new ServerAiError('The answer sheet produced more output than one request allows.', 'Upload fewer pages.', 413);
+      }
+      if (finish === 'SAFETY' || finish === 'RECITATION') {
+        throw new ServerAiError(`Gemini stopped early (${finish}).`, undefined, 422);
+      }
+
+      const text: string = (candidate.content?.parts ?? [])
+        .map((p: { text?: string }) => p.text ?? '')
+        .join('')
+        .trim();
+
+      if (!text) {
+        lastError = new ServerAiError(
+          `Gemini returned an empty response (finishReason: ${finish ?? 'unknown'}).`,
+          'Try again, or upload fewer pages.',
+          502
+        );
+        break;
+      }
+
+      try {
+        return JSON.parse(stripCodeFence(text)) as WireResult;
+      } catch {
+        lastError = new ServerAiError('Gemini returned a response that was not valid JSON.', 'Try again.', 502);
+        continue;
+      }
+    } catch (err: any) {
+      lastError = new ServerAiError(
+        `Gemini API request failed (${err?.message || 'Network error / Timeout'}).`,
+        'Trying next candidate model...',
+        502
+      );
+      continue;
+    }
   }
 
-  if (!response.ok) throw await describeHttpError(response);
-
-  const data = await response.json();
-
-  if (data.promptFeedback?.blockReason) {
-    throw new ServerAiError(
-      `Gemini blocked the request (${data.promptFeedback.blockReason}).`,
-      'This usually means a page was misread as unsafe content.',
-      422
-    );
-  }
-
-  const candidate = data.candidates?.[0];
-  if (!candidate) {
-    throw new ServerAiError('Gemini returned no result for your pages.', 'Try clearer scans.', 502);
-  }
-
-  const finish = candidate.finishReason;
-  if (finish === 'MAX_TOKENS') {
-    throw new ServerAiError('The answer sheet produced more output than one request allows.', 'Upload fewer pages.', 413);
-  }
-  if (finish === 'SAFETY' || finish === 'RECITATION') {
-    throw new ServerAiError(`Gemini stopped early (${finish}).`, undefined, 422);
-  }
-
-  const text: string = (candidate.content?.parts ?? [])
-    .map((p: { text?: string }) => p.text ?? '')
-    .join('')
-    .trim();
-
-  if (!text) {
-    throw new ServerAiError(
-      `Gemini returned an empty response (finishReason: ${finish ?? 'unknown'}).`,
-      'Try again, or upload fewer pages.',
-      502
-    );
-  }
-
-  try {
-    return JSON.parse(stripCodeFence(text)) as WireResult;
-  } catch {
-    throw new ServerAiError('Gemini returned a response that was not valid JSON.', 'Try again.', 502);
-  }
+  throw lastError || new ServerAiError('Failed to process assessment with Gemini AI. All model attempts exhausted.', undefined, 502);
 }
 
-async function describeHttpError(response: Response): Promise<ServerAiError> {
+async function describeHttpError(response: Response, model: string = 'gemini'): Promise<ServerAiError> {
   let detail = '';
   try {
     const body = await response.json();
@@ -434,16 +472,16 @@ async function describeHttpError(response: Response): Promise<ServerAiError> {
   } catch { /* non-JSON */ }
 
   if (response.status === 400 && /API key not valid/i.test(detail)) {
-    return new ServerAiError('The server\'s Gemini API key is not valid.', 'Update GEMINI_API_KEY in .env.', 502);
+    return new ServerAiError('The server\'s Gemini API key is not valid.', 'Update GEMINI_API_KEY in .env or dashboard.', 502);
   }
   if (response.status === 403) {
     return new ServerAiError('Gemini rejected the server key (403).', 'Check key restrictions.', 502);
   }
   if (response.status === 404) {
-    return new ServerAiError(`Model "${MODEL}" is not available (404).`, detail || 'Try updating the model name.', 502);
+    return new ServerAiError(`Model "${model}" is not available (404).`, detail || 'Try checking enabled models in Google AI Studio.', 502);
   }
   if (response.status === 429) {
-    return new ServerAiError('Gemini rate limit exceeded (429).', 'Wait a minute and retry.', 429);
+    return new ServerAiError('Gemini rate limit exceeded (429).', 'Wait ~30 seconds and retry.', 429);
   }
   if (response.status >= 500) {
     return new ServerAiError(`Gemini server error (${response.status}).`, 'Retry shortly.', 502);

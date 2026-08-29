@@ -7,10 +7,9 @@ import {
   Copy, 
   Check, 
   Trash2, 
-  HelpCircle,
   BookOpen,
-  ChevronRight,
-  MessageSquare
+  RotateCcw,
+  Key
 } from 'lucide-react';
 import { AssessmentData } from '@vedaai/types';
 import { 
@@ -25,6 +24,12 @@ interface AIChatDrawerProps {
   isOpen: boolean;
   onOpen: () => void;
   onClose: () => void;
+  onOpenApiKey?: () => void;
+}
+
+interface ExtendedChatMessage extends ChatMessage {
+  rawPrompt?: string;
+  isError?: boolean;
 }
 
 export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
@@ -33,12 +38,13 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
   isOpen,
   onOpen,
   onClose,
+  onOpenApiKey,
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const [messages, setMessages] = useState<ExtendedChatMessage[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      content: `Hello! I'm **Veda AI Tutor** 👋\n\nI have access to the complete student exam submission, questions, and grading feedback. How can I help you today?`,
+      content: `Hello! I'm **Veda AI Tutor** 👋\n\nI have access to the complete student exam submission, questions, and grading feedback. How can I help you evaluate or explain this assessment?`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -63,7 +69,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
     }
   }, [isOpen]);
 
-  const selectedQuestion = assessment?.questions.find(q => q.id === selectedQuestionId);
+  const selectedQuestion = assessment?.questions.find((q) => q.id === selectedQuestionId);
   const selectedMapping = selectedQuestionId && assessment?.answerMappings ? assessment.answerMappings[selectedQuestionId] : null;
 
   // Dynamic suggested prompts based on current context
@@ -98,7 +104,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
     const query = (textToSend || input).trim();
     if (!query || isLoading) return;
 
-    const userMessage: ChatMessage = {
+    const userMessage: ExtendedChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
       content: query,
@@ -114,26 +120,33 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
       const context = buildAssessmentChatContext(assessment, selectedQuestionId);
       
       const reply = await sendChatMessage(
-        newMessages.map(m => ({ role: m.role, content: m.content })),
+        newMessages.map((m) => ({ role: m.role, content: m.content })),
         context
       );
 
-      const aiMessage: ChatMessage = {
+      const aiMessage: ExtendedChatMessage = {
         id: `ai-${Date.now()}`,
         role: 'assistant',
         content: reply,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages((prev) => [...prev, aiMessage]);
     } catch (err: any) {
-      const errorMessage: ChatMessage = {
+      const isRateLimit = err?.message?.includes('429') || err?.message?.includes('rate limit');
+      const errorMessageContent = isRateLimit
+        ? `⚠️ **Gemini API Rate Limit (429)**\n\nGoogle AI's free-tier quota is temporarily busy.\n\n💡 **Options**:\n- **Wait ~30 seconds** and click **Retry** below.\n- **Add your own free Gemini API Key** (via the key icon 🔑 in the top bar) for unlimited personal quota.`
+        : `⚠️ **Error**: ${err.message || 'Could not get response from AI. Please try again.'}`;
+
+      const errorMessage: ExtendedChatMessage = {
         id: `err-${Date.now()}`,
         role: 'assistant',
-        content: `⚠️ **Error**: ${err.message || 'Could not get response from AI. Please try again.'}`,
+        content: errorMessageContent,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        rawPrompt: query,
+        isError: true,
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -169,7 +182,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
       {!isOpen && (
         <button
           onClick={onOpen}
-          className="fixed bottom-6 right-6 z-40 px-4 py-3.5 rounded-full bg-[#292929] hover:bg-black text-white shadow-2xl flex items-center gap-2.5 transition-all duration-300 transform hover:scale-105 active:scale-95 group font-sans border border-white/10"
+          className="fixed bottom-6 right-6 z-40 px-4 py-3.5 rounded-full bg-[#292929] hover:bg-black text-white shadow-2xl flex items-center gap-2.5 transition-all duration-300 transform hover:scale-105 active:scale-95 group font-sans border border-white/10 cursor-pointer"
           title="Open Veda AI Tutor"
         >
           <div className="relative flex items-center justify-center">
@@ -223,10 +236,19 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
               </div>
 
               <div className="flex items-center gap-1">
+                {onOpenApiKey && (
+                  <button
+                    onClick={onOpenApiKey}
+                    className="p-2 text-gray-400 hover:text-[#F15A35] rounded-lg hover:bg-gray-50 transition cursor-pointer"
+                    title="API Key Settings"
+                  >
+                    <Key className="w-4 h-4" />
+                  </button>
+                )}
                 {messages.length > 2 && (
                   <button
                     onClick={handleClear}
-                    className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-50 transition"
+                    className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-50 transition cursor-pointer"
                     title="Clear chat history"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -234,7 +256,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
                 )}
                 <button
                   onClick={onClose}
-                  className="p-2 text-gray-400 hover:text-[#292929] rounded-lg hover:bg-gray-50 transition"
+                  className="p-2 text-gray-400 hover:text-[#292929] rounded-lg hover:bg-gray-50 transition cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -269,47 +291,112 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
                     className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs leading-relaxed ${
                       m.role === 'user'
                         ? 'bg-[#292929] text-white rounded-br-xs shadow-xs'
-                        : 'bg-white border border-gray-200/90 text-gray-800 rounded-bl-xs shadow-xs'
+                        : m.isError
+                          ? 'bg-amber-50/70 border border-amber-200 text-amber-950 rounded-bl-xs shadow-xs'
+                          : 'bg-white border border-gray-200/90 text-gray-800 rounded-bl-xs shadow-xs'
                     }`}
                   >
-                    {/* Render content with basic markdown support (bold, bullet points, code blocks) */}
+                    {/* Render content with formatted markdown support */}
                     <div className="space-y-1.5 whitespace-pre-wrap">
                       {m.content.split('\n').map((line, idx) => {
-                        // Bold parsing
-                        const formatted = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                        if (line.startsWith('### ')) {
+                          return (
+                            <h4 key={idx} className="text-xs font-bold text-gray-900 mt-2 mb-1">
+                              {line.replace('### ', '')}
+                            </h4>
+                          );
+                        }
+                        if (line.startsWith('## ')) {
+                          return (
+                            <h3 key={idx} className="text-xs font-bold text-gray-900 mt-2.5 mb-1 text-[#F15A35]">
+                              {line.replace('## ', '')}
+                            </h3>
+                          );
+                        }
+                        if (line.startsWith('> ')) {
+                          return (
+                            <blockquote key={idx} className="border-l-2 border-[#F15A35] pl-2.5 py-0.5 my-1 text-gray-600 italic bg-gray-50/50 rounded-r">
+                              {line.replace('> ', '')}
+                            </blockquote>
+                          );
+                        }
+                        const formatted = line
+                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                          .replace(/`(.*?)`/g, '<code class="px-1 py-0.5 bg-gray-100 rounded text-[11px] font-mono text-pink-600">$1</code>');
                         return (
                           <div 
                             key={idx} 
                             dangerouslySetInnerHTML={{ __html: formatted }} 
-                            className={line.startsWith('- ') || line.startsWith('• ') ? 'pl-2 text-gray-700' : ''}
+                            className={line.startsWith('- ') || line.startsWith('• ') || /^\d+\.\s/.test(line) ? 'pl-2 text-gray-700' : ''}
                           />
                         );
                       })}
                     </div>
 
-                    {/* Timestamp & Copy action */}
-                    <div className={`mt-1.5 pt-1 flex items-center justify-between text-[10px] ${
+                    {/* Quick action buttons if error card */}
+                    {m.isError && (
+                      <div className="mt-2.5 pt-2 border-t border-amber-200/80 flex items-center gap-2">
+                        {m.rawPrompt && (
+                          <button
+                            onClick={() => handleSend(m.rawPrompt)}
+                            disabled={isLoading}
+                            className="px-2.5 py-1 rounded-md bg-[#292929] hover:bg-black text-white text-[10px] font-semibold flex items-center gap-1 transition cursor-pointer disabled:opacity-50"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Retry Now</span>
+                          </button>
+                        )}
+                        {onOpenApiKey && (
+                          <button
+                            onClick={onOpenApiKey}
+                            className="px-2.5 py-1 rounded-md bg-white hover:bg-amber-100/70 border border-amber-300 text-amber-900 text-[10px] font-semibold flex items-center gap-1 transition cursor-pointer"
+                          >
+                            <Key className="w-3 h-3 text-[#F15A35]" />
+                            <span>Add Free API Key</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Timestamp & Actions */}
+                    <div className={`mt-2 pt-1.5 flex items-center justify-between text-[10px] ${
                       m.role === 'user' ? 'text-white/50' : 'text-gray-400 border-t border-gray-100'
                     }`}>
                       <span>{m.timestamp}</span>
-                      {m.role === 'assistant' && (
-                        <button
-                          onClick={() => handleCopy(m.id, m.content)}
-                          className="hover:text-gray-600 transition flex items-center gap-1"
-                          title="Copy response"
-                        >
-                          {copiedId === m.id ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-500" />
-                              <span className="text-emerald-500">Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3" />
-                              <span>Copy</span>
-                            </>
+
+                      {m.role === 'assistant' && !m.isError && (
+                        <div className="flex items-center gap-2.5">
+                          {m.rawPrompt && (
+                            <button
+                              onClick={() => handleSend(m.rawPrompt)}
+                              disabled={isLoading}
+                              className="hover:text-[#F15A35] transition flex items-center gap-1 font-semibold cursor-pointer disabled:opacity-50"
+                              title="Retry prompt"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>Retry</span>
+                            </button>
                           )}
-                        </button>
+
+                          <button
+                            onClick={() => handleCopy(m.id, m.content)}
+                            className="hover:text-gray-600 transition flex items-center gap-1 cursor-pointer"
+                            title="Copy response"
+                          >
+                            {copiedId === m.id ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-500" />
+                                <span className="text-emerald-500">Copied</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>Copy</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -341,7 +428,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({
                     key={idx}
                     onClick={() => handleSend(suggestion)}
                     disabled={isLoading}
-                    className="px-2.5 py-1 rounded-full bg-white hover:bg-[#FBE8DF] hover:text-[#F15A35] text-gray-700 text-[11px] font-medium transition border border-gray-200 shadow-2xs whitespace-nowrap active:scale-95 disabled:opacity-50 shrink-0"
+                    className="px-2.5 py-1 rounded-full bg-white hover:bg-[#FBE8DF] hover:text-[#F15A35] text-gray-700 text-[11px] font-medium transition border border-gray-200 shadow-2xs whitespace-nowrap active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer"
                   >
                     {suggestion}
                   </button>

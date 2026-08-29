@@ -12,8 +12,18 @@ export class ServerAiError extends Error {
   }
 }
 
-const MODEL = 'gemini-3.6-flash';
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+const CANDIDATE_MODELS = [
+  'gemini-3.1-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-3.5-flash',
+  'gemini-3.7-flash',
+  'gemini-flash-latest',
+  'gemini-2.5-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-2.5-pro',
+];
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -61,7 +71,7 @@ export async function processChatOnServer(
   if (!apiKey || apiKey.trim().length === 0) {
     throw new ServerAiError(
       'Gemini API key is not configured on the server.',
-      'Check GEMINI_API_KEY in apps/server/.env',
+      'Check GEMINI_API_KEY in apps/server/.env or provide your key in dashboard settings.',
       503
     );
   }
@@ -105,7 +115,7 @@ Missed concepts: ${(ans?.missedConcepts || []).join(', ') || 'None'}
 Your goals:
 1. Explain grading decisions clearly and objectively based on the student's evaluated exam.
 2. If asked why marks were deducted for a question, cite specific concepts that were missed according to the rubric and student's answer.
-3. If asked for model answers or study tips, provide clear, concise, step-by-step educational explanations.
+3. If asked for model answers, question papers, rubrics, or lesson plans, provide comprehensive, high-quality, formatted markdown output with bold headings and structured bullet points.
 4. Keep answers friendly, constructive, formatted with markdown bullet points and bold highlights for readability.
 5. If no specific exam is loaded, answer general academic and exam preparation questions.
 
@@ -117,40 +127,61 @@ ${contextDescription}`;
     parts: [{ text: m.content }]
   }));
 
-  let response: Response;
-  try {
-    response = await fetch(ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey.trim()
-      },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: systemInstruction }]
+  const payload = {
+    systemInstruction: {
+      parts: [{ text: systemInstruction }]
+    },
+    contents,
+    generationConfig: {
+      temperature: 0.3,
+      maxOutputTokens: 1536,
+    }
+  };
+
+  let lastStatus = 500;
+  let lastErrorText = '';
+
+  // Multi-model low-latency fallback sequence
+  for (let i = 0; i < CANDIDATE_MODELS.length; i++) {
+    const model = CANDIDATE_MODELS[i];
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey.trim()
         },
-        contents,
-        generationConfig: {
-          temperature: 0.4,
-          maxOutputTokens: 2048,
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (replyText && replyText.trim().length > 0) {
+          return replyText;
         }
-      })
-    });
-  } catch (err) {
-    throw new ServerAiError('Could not connect to Gemini AI chat services.', undefined, 502);
+      }
+
+      lastStatus = response.status;
+      lastErrorText = await response.text().catch(() => '');
+
+      // On 404, 429, or 503 immediately try next candidate model
+      continue;
+    } catch (err: any) {
+      lastErrorText = err?.message || 'Network error';
+      continue;
+    }
   }
 
-  if (!response.ok) {
-    const errBody = await response.text().catch(() => '');
-    throw new ServerAiError(`Gemini chat error (${response.status})`, errBody, 502);
+  if (lastStatus === 429) {
+    throw new ServerAiError(
+      'Gemini Rate Limit (429): Free tier quota is temporarily exhausted.',
+      'Please wait ~30 seconds, or provide your personal Gemini API key in the top bar.',
+      429
+    );
   }
 
-  const data = await response.json();
-  const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  if (!replyText) {
-    throw new ServerAiError('Gemini returned an empty response.', undefined, 502);
-  }
-
-  return replyText;
+  throw new ServerAiError(`Gemini chat error (${lastStatus})`, lastErrorText.slice(0, 300), 502);
 }

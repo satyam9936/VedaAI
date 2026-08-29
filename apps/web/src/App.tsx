@@ -111,7 +111,8 @@ export function App() {
           const result = await processAssessmentViaBackend(
             qpRawFiles,
             ansRawFiles,
-            (status) => setProcessingStatus(status)
+            (status) => setProcessingStatus(status),
+            geminiApiKey
           );
 
           setAssessment(result);
@@ -133,8 +134,8 @@ export function App() {
             await processClientSide(qpRawFiles, ansRawFiles);
           } else {
             setProcessingError({
-              message: err?.message || 'Server processing failed.',
-              hint: err?.hint || 'Try again, or add your own Gemini API key as a fallback.',
+              message: err?.message || 'Assessment extraction failed.',
+              hint: err?.hint || 'Check if your Gemini API key is valid or try adding your key in the top bar.',
             });
             setProcessingStatus(null);
             setViewMode('upload');
@@ -286,6 +287,9 @@ export function App() {
             onRemoveAnsFiles={handleRemoveAnsFiles}
             onStartMapping={handleStartMapping}
             onLoadSampleCase={handleLoadSampleCase}
+            processingError={processingError}
+            onClearError={() => setProcessingError(null)}
+            onOpenApiKey={() => setIsApiKeyOpen(true)}
           />
         )}
       </DashboardShell>
@@ -306,12 +310,14 @@ export function App() {
         isOpen={isChatOpen}
         onOpen={() => setIsChatOpen(true)}
         onClose={() => setIsChatOpen(false)}
+        onOpenApiKey={() => setIsApiKeyOpen(true)}
       />
 
       {/* AI Teacher's Toolkit Modal */}
       <TeacherToolkitModal
         isOpen={isTeacherToolkitOpen}
         onClose={() => setIsTeacherToolkitOpen(false)}
+        onOpenApiKey={() => setIsApiKeyOpen(true)}
       />
     </>
   );

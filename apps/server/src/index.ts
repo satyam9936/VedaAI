@@ -74,7 +74,8 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // ---------------------------------------------------------------------------
 // Rate limiting (simple in-memory, per-IP)
@@ -82,7 +83,7 @@ app.use(express.json({ limit: '1mb' }));
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
-const RATE_LIMIT_MAX = 10; // max 10 requests per minute
+const RATE_LIMIT_MAX = 30; // max 30 requests per minute
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -114,7 +115,7 @@ setInterval(() => {
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 20 * 1024 * 1024, // 20MB per file
+    fileSize: 30 * 1024 * 1024, // 30MB per file
     files: 20, // max 20 files total
   },
   fileFilter: (_req, file, cb) => {
@@ -148,37 +149,69 @@ app.get(['/api/health', '/health'], (_req, res) => {
  * POST /api/assess
  * Main assessment endpoint.
  *
- * Expects multipart/form-data with:
- *   - questionPaper: one or more files (question paper pages)
- *   - answerSheet:   one or more files (answer sheet pages)
+ * Accepts either:
+ *   1. JSON payload with pre-rendered { qpPages: PageImage[], ansPages: PageImage[] }
+ *   2. Multipart/form-data with { questionPaper, answerSheet }
  */
 app.post(
   ['/api/assess', '/assess'],
-  upload.fields([
-    { name: 'questionPaper', maxCount: 10 },
-    { name: 'answerSheet', maxCount: 10 },
-  ]),
+  (req, res, next) => {
+    if (req.is('application/json')) {
+      return next();
+    }
+    upload.fields([
+      { name: 'questionPaper', maxCount: 10 },
+      { name: 'answerSheet', maxCount: 10 },
+    ])(req, res, next);
+  },
   async (req, res) => {
     // Rate limit check
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
     if (!checkRateLimit(clientIp)) {
       res.status(429).json({
         error: 'Too many requests. Please wait a minute before trying again.',
-        hint: 'The server allows 10 assessment requests per minute.',
+        hint: 'The server allows 30 assessment requests per minute.',
       });
       return;
     }
+
+    const customHeaderKey = req.headers['x-gemini-api-key'] || req.headers['x-api-key'];
+    const bodyKey = req.body?.apiKey;
+    const effectiveKey = (customHeaderKey || bodyKey || GEMINI_API_KEY || '').toString().trim();
 
     // Validate API key is configured
-    if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your_gemini_api_key_here') {
+    if (!effectiveKey || effectiveKey === 'your_gemini_api_key_here') {
       res.status(503).json({
         error: 'Gemini API key not configured on the server.',
-        hint: 'Set GEMINI_API_KEY in the server\'s .env file.',
+        hint: 'Set GEMINI_API_KEY in apps/server/.env or provide your personal key in the dashboard.',
       });
       return;
     }
 
-    // Extract uploaded files
+    // Check for pre-rendered pages JSON payload (fast, reliable, handles PDFs flawlessly)
+    const { qpPages, ansPages } = req.body || {};
+    if (Array.isArray(qpPages) && qpPages.length > 0 && Array.isArray(ansPages) && ansPages.length > 0) {
+      console.log(
+        `[assess] Processing ${qpPages.length} pre-rendered QP page(s) + ${ansPages.length} answer page(s) from ${clientIp}`
+      );
+      try {
+        const assessment = await processAssessmentOnServer([], [], effectiveKey, { qpPages, ansPages });
+        console.log(`[assess] ✓ Success — ${assessment.questions.length} questions extracted`);
+        res.json({ success: true, assessment });
+        return;
+      } catch (err: any) {
+        if (err instanceof ServerAiError) {
+          console.error(`[assess] ✗ ${err.message}`);
+          res.status(err.statusCode).json({ error: err.message, hint: err.hint });
+        } else {
+          console.error('[assess] ✗ Unexpected error:', err);
+          res.status(500).json({ error: err?.message || 'Assessment extraction failed.' });
+        }
+        return;
+      }
+    }
+
+    // Extract multipart uploaded files
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
     const qpFiles = files?.questionPaper || [];
     const ansFiles = files?.answerSheet || [];
@@ -207,12 +240,12 @@ app.post(
       const assessment = await processAssessmentOnServer(
         qpFiles.map((f) => ({ buffer: f.buffer, originalname: f.originalname, mimetype: f.mimetype })),
         ansFiles.map((f) => ({ buffer: f.buffer, originalname: f.originalname, mimetype: f.mimetype })),
-        GEMINI_API_KEY
+        effectiveKey
       );
 
       console.log(`[assess] ✓ Success — ${assessment.questions.length} questions extracted`);
       res.json({ success: true, assessment });
-    } catch (err) {
+    } catch (err: any) {
       if (err instanceof ServerAiError) {
         console.error(`[assess] ✗ ${err.message}`);
         res.status(err.statusCode).json({
@@ -247,10 +280,14 @@ app.post(['/api/chat', '/chat'], async (req, res) => {
     return;
   }
 
-  if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your_gemini_api_key_here') {
+  const customHeaderKey = req.headers['x-gemini-api-key'] || req.headers['x-api-key'];
+  const bodyKey = req.body?.apiKey;
+  const effectiveKey = (customHeaderKey || bodyKey || GEMINI_API_KEY || '').toString().trim();
+
+  if (!effectiveKey || effectiveKey === 'your_gemini_api_key_here') {
     res.status(503).json({
       error: 'Gemini API key not configured on the server.',
-      hint: 'Set GEMINI_API_KEY in apps/server/.env',
+      hint: 'Set GEMINI_API_KEY in apps/server/.env or provide your API key in the top bar.',
     });
     return;
   }
@@ -262,7 +299,7 @@ app.post(['/api/chat', '/chat'], async (req, res) => {
   }
 
   try {
-    const reply = await processChatOnServer(messages, context, GEMINI_API_KEY);
+    const reply = await processChatOnServer(messages, context, effectiveKey);
     res.json({ success: true, reply });
   } catch (err: any) {
     if (err instanceof ServerAiError) {

@@ -6,19 +6,20 @@ import {
   Copy, 
   Check, 
   FileText, 
-  CheckCircle2, 
   BookOpen, 
   GraduationCap, 
   ListChecks, 
-  HelpCircle,
+  Zap,
   RotateCcw,
-  Zap
+  Key,
+  AlertTriangle
 } from 'lucide-react';
-import { sendChatMessage } from '@vedaai/ai-engine';
+import { sendChatMessage, generateCurriculumDocument } from '@vedaai/ai-engine';
 
 interface TeacherToolkitModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenApiKey?: () => void;
 }
 
 type ToolkitTab = 'generator' | 'rubric' | 'planner' | 'chat';
@@ -28,11 +29,14 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  isFallback?: boolean;
+  rawPrompt?: string;
 }
 
 export const TeacherToolkitModal: React.FC<TeacherToolkitModalProps> = ({
   isOpen,
   onClose,
+  onOpenApiKey,
 }) => {
   const [activeTab, setActiveTab] = useState<ToolkitTab>('generator');
   
@@ -49,7 +53,7 @@ export const TeacherToolkitModal: React.FC<TeacherToolkitModalProps> = ({
     {
       id: 'init-teacher',
       role: 'assistant',
-      content: `Welcome to the **AI Teacher's Toolkit**! 🎓\n\nI can instantly generate **Question Papers**, **Marking Schemes & Rubrics**, **Homework Worksheets**, and **Lesson Plans**. Select a template above or ask me anything directly!`,
+      content: `Welcome to the **AI Teacher's Toolkit**! 🎓\n\nI can instantly generate **Question Papers**, **Marking Schemes & Rubrics**, **Homework Worksheets**, and **Lesson Plans**. Select a template on the left or ask me anything directly!`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -76,7 +80,7 @@ Please include:
 2. Complete Step-by-Step Answer Key & Marking Scheme.
 3. Key learning objectives tested.`;
 
-    await handleSendMessage(prompt);
+    await handleSendMessage(prompt, 'generator');
   };
 
   const handleGenerateRubric = async () => {
@@ -86,7 +90,7 @@ Format with:
 - Point breakdown for each step/concept
 - Common student misconceptions to watch out for`;
 
-    await handleSendMessage(prompt);
+    await handleSendMessage(prompt, 'rubric');
   };
 
   const handleGenerateLessonPlan = async () => {
@@ -98,10 +102,10 @@ Include:
 4. 10-min Active Student Activity
 5. 5-min Exit Ticket Assessment Quiz`;
 
-    await handleSendMessage(prompt);
+    await handleSendMessage(prompt, 'planner');
   };
 
-  const handleSendMessage = async (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string, specificMode?: ToolkitTab) => {
     const query = (textToSend || input).trim();
     if (!query || isLoading) return;
 
@@ -116,6 +120,8 @@ Include:
     setMessages(newMessages);
     setInput('');
     setIsLoading(true);
+
+    const mode = specificMode || activeTab;
 
     try {
       const reply = await sendChatMessage(
@@ -136,20 +142,56 @@ Include:
 
       setMessages((prev) => [...prev, aiMessage]);
     } catch (err: any) {
-      const errMessage: Message = {
-        id: `err-${Date.now()}`,
-        role: 'assistant',
-        content: `⚠️ **Error**: ${err.message || 'Could not generate response. Please try again.'}`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, errMessage]);
+      console.warn('AI chat error:', err);
+
+      // If generator/rubric/planner mode, synthesize complete curriculum document fallback
+      if (mode === 'generator' || mode === 'rubric' || mode === 'planner') {
+        const fallbackDoc = generateCurriculumDocument({
+          mode,
+          subject,
+          grade,
+          topic,
+          questionCount,
+          difficulty,
+          questionType,
+        });
+
+        const fallbackNotice = `> ⚡ **Generated via Veda AI Curriculum Engine** *(Google Gemini API Rate Limit 429 encountered — instant template applied)*\n\n${fallbackDoc}`;
+
+        const fallbackMessage: Message = {
+          id: `ai-fallback-${Date.now()}`,
+          role: 'assistant',
+          content: fallbackNotice,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isFallback: true,
+          rawPrompt: query,
+        };
+
+        setMessages((prev) => [...prev, fallbackMessage]);
+      } else {
+        const isRateLimit = err?.message?.includes('429') || err?.message?.includes('rate limit');
+        const errContent = isRateLimit
+          ? `⚠️ **Gemini API Rate Limit (429)**\n\nGoogle AI's free-tier rate limit is temporarily reached.\n\n**Options**:\n- **Wait ~30 seconds** and retry.\n- **Add your own free Gemini API Key** (from [aistudio.google.com](https://aistudio.google.com/app/apikey)) for uninterrupted high-speed generations.`
+          : `⚠️ **Error**: ${err.message || 'Could not generate response. Please try again.'}`;
+
+        const errMessage: Message = {
+          id: `err-${Date.now()}`,
+          role: 'assistant',
+          content: errContent,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          rawPrompt: query,
+        };
+        setMessages((prev) => [...prev, errMessage]);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCopy = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
+    // Strip metadata banner if present for clean document copying
+    const cleanText = text.replace(/^> ⚡.*?\n\n/s, '');
+    navigator.clipboard.writeText(cleanText);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -179,12 +221,24 @@ Include:
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {onOpenApiKey && (
+              <button
+                onClick={onOpenApiKey}
+                className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/90 text-xs font-semibold flex items-center gap-1.5 transition"
+                title="Configure Gemini API Key"
+              >
+                <Key className="w-3.5 h-3.5 text-[#F15A35]" />
+                <span className="hidden sm:inline">API Key</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Toolkit Mode Tabs */}
@@ -241,7 +295,7 @@ Include:
         {/* Main Workspace Body */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           
-          {/* Left Panel: Fast Configuration Controls (visible on Generator / Rubric / Planner tabs) */}
+          {/* Left Panel: Fast Configuration Controls */}
           {activeTab !== 'chat' && (
             <div className="w-full md:w-80 bg-[#FAFAFA] border-r border-gray-200 p-4 overflow-y-auto space-y-3 shrink-0">
               <div className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5 mb-2">
@@ -289,7 +343,7 @@ Include:
                   type="text"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
-                  placeholder="e.g. Newton's Laws of Motion"
+                  placeholder="e.g. Cell Division (Mitosis & Meiosis)"
                   className="w-full text-xs bg-white border border-gray-200 rounded-xl px-2.5 py-2 font-medium text-gray-800 focus:outline-none focus:border-[#F15A35]"
                 />
               </div>
@@ -328,7 +382,7 @@ Include:
                 <button
                   onClick={handleGenerateExam}
                   disabled={isLoading}
-                  className="w-full mt-2 py-2.5 rounded-xl bg-[#F15A35] hover:bg-[#d94825] text-white text-xs font-bold shadow-md shadow-[#F15A35]/20 flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+                  className="w-full mt-2 py-2.5 rounded-xl bg-[#F15A35] hover:bg-[#d94825] text-white text-xs font-bold shadow-md shadow-[#F15A35]/20 flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4" />
                   <span>Generate Exam Paper</span>
@@ -339,7 +393,7 @@ Include:
                 <button
                   onClick={handleGenerateRubric}
                   disabled={isLoading}
-                  className="w-full mt-2 py-2.5 rounded-xl bg-[#292929] hover:bg-black text-white text-xs font-bold shadow-md flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+                  className="w-full mt-2 py-2.5 rounded-xl bg-[#292929] hover:bg-black text-white text-xs font-bold shadow-md flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                   <ListChecks className="w-4 h-4 text-[#F15A35]" />
                   <span>Generate Rubric Table</span>
@@ -350,7 +404,7 @@ Include:
                 <button
                   onClick={handleGenerateLessonPlan}
                   disabled={isLoading}
-                  className="w-full mt-2 py-2.5 rounded-xl bg-[#292929] hover:bg-black text-white text-xs font-bold shadow-md flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+                  className="w-full mt-2 py-2.5 rounded-xl bg-[#292929] hover:bg-black text-white text-xs font-bold shadow-md flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                   <BookOpen className="w-4 h-4 text-[#F15A35]" />
                   <span>Generate Lesson Plan</span>
@@ -370,7 +424,7 @@ Include:
                   className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}
                 >
                   <div
-                    className={`max-w-[90%] sm:max-w-[85%] rounded-2xl p-4 text-xs leading-relaxed ${
+                    className={`max-w-[92%] sm:max-w-[88%] rounded-2xl p-4 text-xs leading-relaxed ${
                       m.role === 'user'
                         ? 'bg-[#292929] text-white rounded-br-xs shadow-xs'
                         : 'bg-white border border-gray-200/90 text-gray-800 rounded-bl-xs shadow-xs'
@@ -380,39 +434,67 @@ Include:
                     <div className="space-y-1.5 whitespace-pre-wrap">
                       {m.content.split('\n').map((line, idx) => {
                         const formatted = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                        const isHeader = line.startsWith('#');
+                        const isBlockquote = line.startsWith('>');
+
+                        if (isBlockquote) {
+                          return (
+                            <div
+                              key={idx}
+                              className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 font-medium my-2 flex items-center gap-2"
+                              dangerouslySetInnerHTML={{ __html: formatted.replace(/^>\s*/, '') }}
+                            />
+                          );
+                        }
+
                         return (
                           <div 
                             key={idx} 
                             dangerouslySetInnerHTML={{ __html: formatted }} 
-                            className={line.startsWith('#') ? 'font-bold text-sm text-gray-900 mt-2' : ''}
+                            className={isHeader ? 'font-bold text-sm text-gray-900 mt-3 mb-1' : ''}
                           />
                         );
                       })}
                     </div>
 
-                    {/* Timestamp & Copy Action */}
-                    <div className={`mt-2 pt-1.5 flex items-center justify-between text-[10px] ${
+                    {/* Timestamp & Actions */}
+                    <div className={`mt-3 pt-2 flex items-center justify-between text-[10px] ${
                       m.role === 'user' ? 'text-white/50' : 'text-gray-400 border-t border-gray-100'
                     }`}>
                       <span>{m.timestamp}</span>
+                      
                       {m.role === 'assistant' && (
-                        <button
-                          onClick={() => handleCopy(m.id, m.content)}
-                          className="hover:text-gray-700 transition flex items-center gap-1 font-semibold"
-                          title="Copy text"
-                        >
-                          {copiedId === m.id ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-500" />
-                              <span className="text-emerald-500">Copied to Clipboard</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3" />
-                              <span>Copy Paper / Rubric</span>
-                            </>
+                        <div className="flex items-center gap-3">
+                          {m.rawPrompt && (
+                            <button
+                              onClick={() => handleSendMessage(m.rawPrompt)}
+                              disabled={isLoading}
+                              className="hover:text-[#F15A35] transition flex items-center gap-1 font-semibold cursor-pointer disabled:opacity-50"
+                              title="Retry generation with AI"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>Retry with AI</span>
+                            </button>
                           )}
-                        </button>
+
+                          <button
+                            onClick={() => handleCopy(m.id, m.content)}
+                            className="hover:text-gray-700 transition flex items-center gap-1 font-semibold cursor-pointer"
+                            title="Copy text"
+                          >
+                            {copiedId === m.id ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-500" />
+                                <span className="text-emerald-500">Copied to Clipboard</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>Copy Document</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

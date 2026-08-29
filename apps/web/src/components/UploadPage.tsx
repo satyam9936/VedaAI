@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, AlertCircle, X, Key, RotateCcw } from 'lucide-react';
 import teacherMascot from '../assets/teacher-mascot.png';
 import { UploadCard } from './UploadCard';
 import { UploadedFileCard } from './UploadedFileCard';
@@ -21,6 +21,9 @@ interface UploadPageProps {
   onRemoveAnsFiles: () => void;
   onStartMapping: () => void;
   onLoadSampleCase?: () => void;
+  processingError?: { message: string; hint?: string } | null;
+  onClearError?: () => void;
+  onOpenApiKey?: () => void;
 }
 
 export const UploadPage: React.FC<UploadPageProps> = ({
@@ -32,12 +35,16 @@ export const UploadPage: React.FC<UploadPageProps> = ({
   onRemoveAnsFiles,
   onStartMapping,
   onLoadSampleCase,
+  processingError,
+  onClearError,
+  onOpenApiKey,
 }) => {
   const [cameraModalType, setCameraModalType] = useState<'Question Paper' | 'Answer Sheet' | null>(null);
 
   const isBothUploaded = qpFiles.length > 0 && ansFiles.length > 0;
 
   const handleQpUpload = (files: File[]) => {
+    if (onClearError) onClearError();
     const fileDatas: FileData[] = files.map((file, i) => {
       const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);
       return {
@@ -51,6 +58,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
   };
 
   const handleAnsUpload = (files: File[]) => {
+    if (onClearError) onClearError();
     const fileDatas: FileData[] = files.map((file, i) => {
       const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);
       return {
@@ -93,7 +101,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
       <h1 className="text-2xl sm:text-3xl lg:text-[40px] font-bold text-center tracking-tight flex items-center justify-center flex-wrap gap-x-1.5 sm:gap-x-2 leading-[1.2] lg:leading-[1.15] font-sans">
         <span className="text-[#292929]">Upload</span>
         <span className="bg-[#FBE8DF] text-[#F15A35] px-2.5 sm:px-[10px] py-[3px] rounded-[7px] border-b-2 border-[#F15A35] inline-block">
-          Question Paper & Answer Sheets
+          Question Paper &amp; Answer Sheets
         </span>
       </h1>
 
@@ -101,6 +109,55 @@ export const UploadPage: React.FC<UploadPageProps> = ({
       <p className="text-sm sm:text-base lg:text-[18px] font-normal text-[#292929] text-center mt-1.5 sm:mt-2.5 font-sans">
         Upload files or take photos with camera to get started
       </p>
+
+      {/* Error Alert Banner if previous processing failed */}
+      {processingError && (
+        <div className="w-full max-w-[850px] mt-4 p-4 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-950 flex items-start justify-between gap-3 shadow-xs animate-fade-in font-sans">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold text-amber-900">
+                {processingError.message}
+              </p>
+              {processingError.hint && (
+                <p className="text-[11px] text-amber-700 mt-0.5">
+                  {processingError.hint}
+                </p>
+              )}
+              <div className="flex items-center gap-3 mt-2">
+                <button
+                  onClick={onStartMapping}
+                  disabled={!isBothUploaded}
+                  className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Retry Processing</span>
+                </button>
+
+                {onOpenApiKey && (
+                  <button
+                    onClick={onOpenApiKey}
+                    className="px-3 py-1 rounded-lg bg-white border border-amber-300 hover:bg-amber-100/50 text-amber-900 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                  >
+                    <Key className="w-3 h-3 text-[#F15A35]" />
+                    <span>Configure Gemini API Key</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {onClearError && (
+            <button
+              onClick={onClearError}
+              className="p-1 hover:bg-amber-200/50 rounded-lg text-amber-600 transition cursor-pointer"
+              title="Dismiss error"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* AI Teacher Mascot PNG Asset */}
       <div className="w-[110px] sm:w-[130px] lg:w-[155px] h-[110px] sm:h-[130px] lg:h-[155px] my-2 sm:my-3.5 flex items-center justify-center shrink-0">
@@ -175,7 +232,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
             className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FBE8DF] hover:bg-[#fcd9ca] text-[#F15A35] text-xs font-semibold transition border border-[#F15A35]/30 shadow-xs cursor-pointer active:scale-95 font-sans"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#F15A35]" />
-            <span>Try Sample Assessment Case (Physics & Biology Exam)</span>
+            <span>Try Sample Assessment Case (Physics &amp; Biology Exam)</span>
           </button>
         )}
       </div>
@@ -197,4 +254,3 @@ export const UploadPage: React.FC<UploadPageProps> = ({
     </div>
   );
 };
-

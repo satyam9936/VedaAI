@@ -9,15 +9,22 @@ import {
 import { SAMPLE_BIOLOGY_ASSESSMENT } from './sampleAssessments';
 import { filesToPages, estimatePayloadBytes, PageImage } from './fileUtils';
 
-/**
- * Model choice is a moving target — keep this in one place.
- * gemini-1.5-flash was shut down 2025-09-29 (and was already unavailable to new projects
- * from 2025-04-29). gemini-2.5-flash then also closed to new users, with Google's own 404
- * body pointing at gemini-3.6-flash as the replacement. If this 404s again, the error we
- * surface quotes Google's recommended successor — put that string here.
- */
-const MODEL = 'gemini-3.6-flash';
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+// ---------------------------------------------------------------------------
+// Candidate models with sequential fallback
+// ---------------------------------------------------------------------------
+
+const CANDIDATE_MODELS = [
+  'gemini-3.5-flash',
+  'gemini-3.1-flash-lite',
+  'gemini-flash-latest',
+  'gemini-flash-lite-latest',
+  'gemini-3.7-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-2.5-pro',
+];
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Gemini rejects inline requests over 20MB. */
 const MAX_INLINE_BYTES = 18 * 1024 * 1024;
@@ -53,8 +60,21 @@ export async function processAssessmentWithAI(
 
   onProgress({ step: 'uploading', progressPercentage: 10, message: 'Reading and rendering your files...' });
 
-  const qpPages = await filesToPages(questionPaperFiles);
-  const ansPages = await filesToPages(answerSheetFiles);
+  const qpPages = await filesToPages(questionPaperFiles, (curr, total, fileName) => {
+    onProgress({
+      step: 'uploading',
+      progressPercentage: 10 + Math.round((curr / total) * 10),
+      message: `Rendering QP page ${curr}/${total} (${fileName})...`,
+    });
+  });
+
+  const ansPages = await filesToPages(answerSheetFiles, (curr, total, fileName) => {
+    onProgress({
+      step: 'uploading',
+      progressPercentage: 20 + Math.round((curr / total) * 10),
+      message: `Rendering answer sheet page ${curr}/${total} (${fileName})...`,
+    });
+  });
 
   const bytes = estimatePayloadBytes(qpPages) + estimatePayloadBytes(ansPages);
   if (bytes > MAX_INLINE_BYTES) {
@@ -240,85 +260,96 @@ async function callGeminiVisionAPI(
     message: 'Gemini is reading the handwriting (this can take 30-60s)...',
   });
 
-  let response: Response;
-  try {
-    response = await fetch(ENDPOINT, {
-      method: 'POST',
-      // Header beats ?key= in the URL: query strings leak into logs and referrers.
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: RESPONSE_SCHEMA,
-          temperature: 0.1,
-          // Deliberately generous, and no thinkingConfig. These models think by default,
-          // and thinking plus a small output cap returns EMPTY parts with
-          // finishReason MAX_TOKENS. Capping high avoids that without sending a
-          // thinkingBudget/thinkingLevel field whose name differs across model
-          // generations (2.5 wants thinkingBudget, 3.x wants thinkingLevel).
-          maxOutputTokens: 65536,
-        },
-      }),
-    });
-  } catch (err) {
-    throw new AiEngineError(
-      'Could not reach the Gemini API.',
-      'Check your internet connection, and any ad blocker or VPN blocking googleapis.com.'
-    );
+  const requestPayload = {
+    contents: [{ role: 'user', parts }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: RESPONSE_SCHEMA,
+      temperature: 0.1,
+      maxOutputTokens: 16384,
+    },
+  };
+
+  let lastError: AiEngineError | null = null;
+
+  for (let i = 0; i < CANDIDATE_MODELS.length; i++) {
+    const model = CANDIDATE_MODELS[i];
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(requestPayload),
+        signal: AbortSignal.timeout(24000),
+      });
+
+      if (!response.ok) {
+        lastError = await describeHttpError(response, model);
+        continue;
+      }
+
+      const data = await response.json();
+
+      if (data.promptFeedback?.blockReason) {
+        throw new AiEngineError(
+          `Gemini blocked the request (${data.promptFeedback.blockReason}).`,
+          'This usually means a page was misread as unsafe content. Try re-scanning it.'
+        );
+      }
+
+      const candidate = data.candidates?.[0];
+      if (!candidate) {
+        lastError = new AiEngineError('Gemini returned no result for your pages.', 'Try clearer, higher-contrast scans.');
+        continue;
+      }
+
+      const finish = candidate.finishReason;
+      if (finish === 'MAX_TOKENS') {
+        throw new AiEngineError(
+          'The answer sheet produced more output than one request allows.',
+          'Upload fewer pages at a time.'
+        );
+      }
+      if (finish === 'SAFETY' || finish === 'RECITATION') {
+        throw new AiEngineError(`Gemini stopped early (${finish}) and returned nothing usable.`);
+      }
+
+      const text: string = (candidate.content?.parts ?? [])
+        .map((p: { text?: string }) => p.text ?? '')
+        .join('')
+        .trim();
+
+      if (!text) {
+        lastError = new AiEngineError(
+          `Gemini returned an empty response (finishReason: ${finish ?? 'unknown'}).`,
+          'Try again, or upload fewer pages.'
+        );
+        break;
+      }
+
+      try {
+        return JSON.parse(stripCodeFence(text)) as WireResult;
+      } catch {
+        lastError = new AiEngineError(
+          'Gemini returned a response that was not valid JSON.',
+          'Try again — this is usually transient.'
+        );
+        continue;
+      }
+    } catch (err: any) {
+      lastError = new AiEngineError(
+        `Gemini API request failed (${err?.message || 'Network error / Timeout'}).`,
+        'Trying next candidate model...'
+      );
+      continue;
+    }
   }
 
-  if (!response.ok) throw await describeHttpError(response);
-
-  const data = await response.json();
-
-  if (data.promptFeedback?.blockReason) {
-    throw new AiEngineError(
-      `Gemini blocked the request (${data.promptFeedback.blockReason}).`,
-      'This usually means a page was misread as unsafe content. Try re-scanning it.'
-    );
-  }
-
-  const candidate = data.candidates?.[0];
-  if (!candidate) {
-    throw new AiEngineError('Gemini returned no result for your pages.', 'Try clearer, higher-contrast scans.');
-  }
-
-  const finish = candidate.finishReason;
-  if (finish === 'MAX_TOKENS') {
-    throw new AiEngineError(
-      'The answer sheet produced more output than one request allows.',
-      'Upload fewer pages at a time.'
-    );
-  }
-  if (finish === 'SAFETY' || finish === 'RECITATION') {
-    throw new AiEngineError(`Gemini stopped early (${finish}) and returned nothing usable.`);
-  }
-
-  // Text can be split across multiple parts — parts[0] alone silently truncates the JSON.
-  const text: string = (candidate.content?.parts ?? [])
-    .map((p: { text?: string }) => p.text ?? '')
-    .join('')
-    .trim();
-
-  if (!text) {
-    throw new AiEngineError(
-      `Gemini returned an empty response (finishReason: ${finish ?? 'unknown'}).`,
-      'Try again, or upload fewer pages.'
-    );
-  }
-
-  try {
-    return JSON.parse(stripCodeFence(text)) as WireResult;
-  } catch {
-    throw new AiEngineError(
-      'Gemini returned a response that was not valid JSON.',
-      'Try again — this is usually transient.'
-    );
-  }
+  throw lastError || new AiEngineError('Failed to process assessment with Gemini AI. All model attempts exhausted.');
 }
 
-async function describeHttpError(response: Response): Promise<AiEngineError> {
+async function describeHttpError(response: Response, model: string = 'gemini'): Promise<AiEngineError> {
   let detail = '';
   try {
     const body = await response.json();
@@ -338,12 +369,12 @@ async function describeHttpError(response: Response): Promise<AiEngineError> {
   }
   if (response.status === 404) {
     return new AiEngineError(
-      `The model "${MODEL}" is not available to your API key (404).`,
-      detail || 'Your key may be too old or region-restricted. Try model "gemini-flash-latest".'
+      `The model "${model}" is not available to your API key (404).`,
+      detail || 'Check your Gemini API key tier and enabled models.'
     );
   }
   if (response.status === 429) {
-    return new AiEngineError('Gemini rate limit / free-tier quota exceeded (429).', 'Wait a minute and retry.');
+    return new AiEngineError('Gemini rate limit / free-tier quota exceeded (429).', 'Wait ~30 seconds or use a custom API key.');
   }
   if (response.status >= 500) {
     return new AiEngineError(`Gemini is having server trouble (${response.status}).`, 'Retry in a moment.');
